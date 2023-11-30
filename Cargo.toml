@@ -1,0 +1,17 @@
+[package]
+name = "aoc2023"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+parse-display = "0.6"
+itertools = "0.10"
+regex = "1.7"
+permutation = "0.4"
+smallvec = "1.10"
+vec-drain-where = "1.0"
+
+[dev-dependencies]
+pretty_assertions = "0.6"
+
+[lib]
