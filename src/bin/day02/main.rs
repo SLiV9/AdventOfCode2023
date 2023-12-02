@@ -29,15 +29,27 @@ fn one(input: &str) -> i32
 
 fn two(input: &str) -> i32
 {
-	input.len() as i32
+	input
+		.lines()
+		.filter(|line| !line.is_empty())
+		.map(power_of_game)
+		.sum()
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 struct Rgb
 {
 	red: i32,
 	green: i32,
 	blue: i32,
+}
+
+impl Rgb
+{
+	fn power(self) -> i32
+	{
+		self.red * self.green * self.blue
+	}
 }
 
 #[derive(Debug, Clone, Copy, Display, FromStr)]
@@ -60,6 +72,16 @@ impl Sample
 			Sample::Red(x) => x <= max.red,
 			Sample::Green(x) => x <= max.green,
 			Sample::Blue(x) => x <= max.blue,
+		}
+	}
+
+	fn raise_max(self, max: &mut Rgb)
+	{
+		match self
+		{
+			Sample::Red(x) => max.red = x.max(max.red),
+			Sample::Green(x) => max.green = x.max(max.green),
+			Sample::Blue(x) => max.blue = x.max(max.blue),
 		}
 	}
 }
@@ -93,6 +115,23 @@ fn game_number_if_matches_max(line: &str, max: Rgb) -> Option<i32>
 	}
 }
 
+fn power_of_game(line: &str) -> i32
+{
+	let (_preamble, body) = line.split_once(':').unwrap();
+
+	let mut max = Rgb::default();
+	let samples = body
+		.split(';')
+		.flat_map(|grab| grab.trim().split(','))
+		.map(|sample| Sample::from_str(sample.trim()).unwrap());
+	for sample in samples
+	{
+		sample.raise_max(&mut max);
+	}
+
+	max.power()
+}
+
 #[cfg(test)]
 mod tests
 {
@@ -105,5 +144,11 @@ mod tests
 	fn one_provided()
 	{
 		assert_eq!(one(PROVIDED), 8);
+	}
+
+	#[test]
+	fn two_provided()
+	{
+		assert_eq!(two(PROVIDED), 2286);
 	}
 }
