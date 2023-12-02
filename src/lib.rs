@@ -19,5 +19,16 @@ macro_rules! run {
 			"### {binname} part {partname}: {output} ### (took \
 			 {runtime_in_ms:.1} ms)"
 		);
+
+		if cfg!(not(debug_assertions))
+		{
+			use std::io::Write;
+			let mut log = std::fs::OpenOptions::new()
+				.append(true)
+				.open("meta/runtime.log.txt")
+				.unwrap();
+			write!(log, "{binname} part {partname}: {runtime_in_ms:.1} ms\n")
+				.unwrap();
+		}
 	};
 }
