@@ -12,12 +12,12 @@ pub fn main()
 
 fn one(input: &str) -> i32
 {
-	input.len() as i32
+	input.len() as i32 * 0
 }
 
 fn two(input: &str) -> i32
 {
-	input.len() as i32
+	input.len() as i32 * 0
 }
 
 #[cfg(test)]

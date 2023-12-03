@@ -1,5 +1,11 @@
 /**/
 
+mod lib
+{
+	pub mod ring_buffer;
+}
+pub use lib::*;
+
 #[macro_export]
 macro_rules! run {
 	($f:ident($x:expr)) => {
