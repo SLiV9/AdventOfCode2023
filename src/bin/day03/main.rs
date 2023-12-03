@@ -3,6 +3,7 @@
 use aoc2023::ring_buffer::RingBuffer;
 use aoc2023::run;
 use bitvec::array::BitArray;
+use itertools::Itertools;
 
 const INPUT: &str = include_str!("input.txt");
 
@@ -14,7 +15,7 @@ pub fn main()
 
 fn one(input: &str) -> i32
 {
-	let lines = input.lines().filter(|line| !line.is_empty()).peekable();
+	let lines = input.lines().filter(|line| !line.is_empty());
 
 	let mut resolved_sum = 0;
 	let mut unresolved: RingBuffer<[UnresolvedNumber; 20]> =
@@ -125,11 +126,6 @@ fn one(input: &str) -> i32
 	resolved_sum
 }
 
-fn two(input: &str) -> i32
-{
-	input.len() as i32 * 0
-}
-
 #[derive(Debug, Clone, Copy)]
 enum Grapheme
 {
@@ -166,6 +162,180 @@ impl Grapheme
 			x if x.is_ascii_whitespace() => Self::Whitespace,
 			_ => Self::Symbol,
 		}
+	}
+}
+
+fn two(input: &str) -> i32
+{
+	let mut gear_ratio_sum = 0;
+
+	let width = input.lines().next().unwrap().len();
+	let dots = [b'.'; 200];
+	let empty = std::str::from_utf8(&dots[0..width]).unwrap();
+	let lines = input.lines().filter(|line| !line.is_empty());
+	let lines = std::iter::once(empty)
+		.chain(lines)
+		.chain(std::iter::once(empty));
+	for (prev, curr, next) in lines.tuple_windows()
+	{
+		let gear_indices = curr
+			.as_bytes()
+			.iter()
+			.enumerate()
+			.filter(|(_, &x)| x == b'*')
+			.map(|(i, _)| i);
+		for i in gear_indices
+		{
+			if let Some(gear) = GearInfo::check(prev, curr, next, i)
+			{
+				gear_ratio_sum += gear.ratio()
+			}
+		}
+	}
+	gear_ratio_sum
+}
+
+fn try_left(line: &[u8], i: usize) -> Option<i32>
+{
+	let mut j = i;
+	let mut part_number = 0;
+	let mut multiplier = 1;
+	while j > 0
+	{
+		j -= 1;
+		match Grapheme::from_ascii(line[j])
+		{
+			Grapheme::Digit(number) =>
+			{
+				part_number += number * multiplier;
+				multiplier *= 10;
+			}
+			Grapheme::Symbol => break,
+			Grapheme::Whitespace => break,
+		}
+	}
+	if part_number > 0
+	{
+		Some(part_number)
+	}
+	else
+	{
+		None
+	}
+}
+
+fn try_right(line: &[u8], i: usize) -> Option<i32>
+{
+	read_right(line, i + 1)
+}
+
+fn read_right(line: &[u8], start: usize) -> Option<i32>
+{
+	let mut part_number = 0;
+	for &x in &line[start..line.len()]
+	{
+		match Grapheme::from_ascii(x)
+		{
+			Grapheme::Digit(number) =>
+			{
+				part_number *= 10;
+				part_number += number;
+			}
+			Grapheme::Symbol => break,
+			Grapheme::Whitespace => break,
+		}
+	}
+	if part_number > 0
+	{
+		Some(part_number)
+	}
+	else
+	{
+		None
+	}
+}
+
+#[derive(Debug, Default)]
+struct GearInfo
+{
+	part_numbers: [i32; 2],
+	num_parts: usize,
+}
+
+impl GearInfo
+{
+	fn check(prev: &str, curr: &str, next: &str, i: usize) -> Option<Self>
+	{
+		let mut info = GearInfo::default();
+		let curr = curr.as_bytes();
+		let prev = prev.as_bytes();
+		let next = next.as_bytes();
+		info.check_part(try_left(curr, i)).unwrap();
+		info.check_part(try_right(curr, i)).unwrap();
+		info.check_line(prev, i)?;
+		info.check_line(next, i)?;
+		Some(info).filter(Self::is_complete)
+	}
+
+	fn check_line(&mut self, line: &[u8], i: usize) -> Option<()>
+	{
+		match Grapheme::from_ascii(line[i])
+		{
+			Grapheme::Digit(_) =>
+			{
+				if self.is_complete()
+				{
+					return None;
+				}
+				let mut start = i;
+				while start > 0
+				{
+					match Grapheme::from_ascii(line[start - 1])
+					{
+						Grapheme::Digit(_) => start -= 1,
+						_ => break,
+					}
+				}
+				let part_number = read_right(line, start).unwrap();
+				self.add_part(part_number);
+				Some(())
+			}
+			_ =>
+			{
+				self.check_part(try_left(line, i))?;
+				self.check_part(try_right(line, i))?;
+				Some(())
+			}
+		}
+	}
+
+	fn check_part(&mut self, part_number: Option<i32>) -> Option<()>
+	{
+		if let Some(part_number) = part_number
+		{
+			if self.is_complete()
+			{
+				return None;
+			}
+			self.add_part(part_number);
+		}
+		Some(())
+	}
+
+	fn add_part(&mut self, part_number: i32)
+	{
+		self.part_numbers[self.num_parts] = part_number;
+		self.num_parts += 1;
+	}
+
+	fn is_complete(&self) -> bool
+	{
+		self.num_parts == 2
+	}
+
+	fn ratio(&self) -> i32
+	{
+		self.part_numbers.iter().product()
 	}
 }
 
@@ -218,5 +388,32 @@ mod tests
 		assert_eq!(one(".....$\n456..."), 0);
 		assert_eq!(one(".$....\n......\n789..."), 0);
 		assert_eq!(one(".111\n"), 0);
+	}
+
+	#[test]
+	fn two_provided()
+	{
+		assert_eq!(two(PROVIDED), 467835);
+	}
+
+	#[test]
+	fn two_singlet()
+	{
+		assert_eq!(two("1*.\n..."), 0);
+	}
+
+	#[test]
+	fn two_gears()
+	{
+		assert_eq!(two("10*20"), 200);
+		assert_eq!(two("30.\n.*.\n.40"), 1200);
+		assert_eq!(two("50...\n..*..\n...60"), 3000);
+		assert_eq!(two("...70\n..*..\n80..."), 5600);
+	}
+
+	#[test]
+	fn two_triplet()
+	{
+		assert_eq!(two("1*2\n.3."), 0);
 	}
 }
