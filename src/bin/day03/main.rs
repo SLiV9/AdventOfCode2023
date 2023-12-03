@@ -46,7 +46,7 @@ fn one(input: &str) -> i32
 				{
 					if active.number == 0
 					{
-						active.start = i;
+						active.start = i.saturating_sub(1);
 						active.line_number = line_number;
 					}
 					else
@@ -54,15 +54,14 @@ fn one(input: &str) -> i32
 						active.number *= 10;
 					}
 					active.number += number;
-					active.end = i;
+					active.end = (i + 2).min(line.len());
 				}
 				Grapheme::Whitespace =>
 				{
 					if active.number != 0
 					{
-						let match_range = active.range(previous_symbols.len());
 						if is_after_symbol
-							|| previous_symbols[match_range].any()
+							|| previous_symbols[active.range()].any()
 						{
 							resolved_sum += active.number;
 						}
@@ -105,8 +104,7 @@ fn one(input: &str) -> i32
 		}
 		if active.number != 0
 		{
-			let match_range = active.range(previous_symbols.len());
-			if is_after_symbol || previous_symbols[match_range].any()
+			if is_after_symbol || previous_symbols[active.range()].any()
 			{
 				resolved_sum += active.number;
 			}
@@ -147,11 +145,9 @@ struct UnresolvedNumber
 
 impl UnresolvedNumber
 {
-	fn range(&self, max_len: usize) -> std::ops::Range<usize>
+	fn range(&self) -> std::ops::Range<usize>
 	{
-		let start = self.start.saturating_sub(1);
-		let end = std::cmp::max(self.end + 1, max_len);
-		start..end
+		self.start..self.end
 	}
 }
 
@@ -207,5 +203,13 @@ mod tests
 	{
 		assert_eq!(one(".123\n$..."), 123);
 		assert_eq!(one("456.\n...$"), 456);
+	}
+
+	#[test]
+	fn one_none()
+	{
+		assert_eq!(one("......\n123..."), 0);
+		assert_eq!(one(".....$\n456..."), 0);
+		assert_eq!(one(".$....\n......\n789..."), 0);
 	}
 }
