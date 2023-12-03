@@ -75,12 +75,16 @@ fn one(input: &str) -> i32
 				}
 				Grapheme::Symbol =>
 				{
-					if let Some(head) = unresolved.head()
+					while let Some(head) = unresolved.head()
 					{
 						if head.line_number < line_number && i + 1 >= head.start
 						{
 							resolved_sum += head.number;
 							unresolved.drop_head();
+						}
+						else
+						{
+							break;
 						}
 					}
 
@@ -203,6 +207,7 @@ mod tests
 	{
 		assert_eq!(one(".123\n$..."), 123);
 		assert_eq!(one("456.\n...$"), 456);
+		assert_eq!(one("9.10\n.$.."), 19);
 	}
 
 	#[test]
