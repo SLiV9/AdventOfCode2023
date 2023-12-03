@@ -40,6 +40,14 @@ fn one(input: &str) -> i32
 		let mut is_after_symbol = false;
 		for (i, &x) in line.as_bytes().iter().enumerate()
 		{
+			if let Some(head) = unresolved.head()
+			{
+				if head.line_number < line_number && head.end <= i
+				{
+					unresolved.drop_head();
+				}
+			}
+
 			match Grapheme::from_ascii(x)
 			{
 				Grapheme::Digit(number) =>
@@ -77,7 +85,7 @@ fn one(input: &str) -> i32
 				{
 					while let Some(head) = unresolved.head()
 					{
-						if head.line_number < line_number && i + 1 >= head.start
+						if head.line_number < line_number && i >= head.start
 						{
 							resolved_sum += head.number;
 							unresolved.drop_head();
@@ -95,14 +103,6 @@ fn one(input: &str) -> i32
 					}
 					current_symbols.set(i, true);
 					is_after_symbol = true;
-				}
-			}
-
-			if let Some(head) = unresolved.head()
-			{
-				if head.line_number < line_number && head.end < i
-				{
-					unresolved.drop_head();
 				}
 			}
 		}
@@ -208,6 +208,7 @@ mod tests
 		assert_eq!(one(".123\n$..."), 123);
 		assert_eq!(one("456.\n...$"), 456);
 		assert_eq!(one("9.10\n.$.."), 19);
+		assert_eq!(one("1.2..4\n.$...."), 3);
 	}
 
 	#[test]
@@ -216,5 +217,6 @@ mod tests
 		assert_eq!(one("......\n123..."), 0);
 		assert_eq!(one(".....$\n456..."), 0);
 		assert_eq!(one(".$....\n......\n789..."), 0);
+		assert_eq!(one(".111\n"), 0);
 	}
 }
