@@ -31,6 +31,12 @@ mod tests
 	#[test]
 	fn one_provided()
 	{
-		assert_eq!(one(PROVIDED), 4);
+		assert_eq!(one(PROVIDED), 0);
+	}
+
+	#[test]
+	fn two_provided()
+	{
+		assert_eq!(two(PROVIDED), 0);
 	}
 }
