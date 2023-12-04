@@ -1,6 +1,6 @@
 /**/
 
-use aoc2023::run;
+use aoc2023::{ring_buffer::RingBuffer, run};
 use smallvec::SmallVec;
 
 const INPUT: &str = include_str!("input.txt");
@@ -67,9 +67,41 @@ fn parse_stream_of_numbers(data: &str) -> impl Iterator<Item = u8> + '_
 	})
 }
 
-fn two(input: &str) -> i32
+fn two(input: &str) -> u32
 {
-	input.len() as i32 * 0
+	let lines = input.lines().filter(|line| !line.is_empty());
+	let mut total_tickets = 0;
+	let mut multipliers: RingBuffer<[u32; 12]> = RingBuffer::default();
+	for line in lines
+	{
+		let own_multiplier = if let Some(&multiplier) = multipliers.head()
+		{
+			multipliers.drop_head();
+			multiplier
+		}
+		else
+		{
+			1
+		};
+		total_tickets += own_multiplier;
+
+		let (_, data) = line.split_once(':').unwrap();
+		let (windata, owndata) = data.split_once('|').unwrap();
+		let winning: SmallVec<[u8; 10]> =
+			parse_stream_of_numbers(windata).collect();
+		let num_matches = parse_stream_of_numbers(owndata)
+			.filter(|own| winning.contains(own))
+			.count();
+		while multipliers.len() < num_matches
+		{
+			multipliers.push(1);
+		}
+		for multiplier in multipliers.iter_mut().take(num_matches)
+		{
+			*multiplier += own_multiplier;
+		}
+	}
+	total_tickets
 }
 
 #[cfg(test)]
@@ -84,5 +116,11 @@ mod tests
 	fn one_provided()
 	{
 		assert_eq!(one(PROVIDED), 13);
+	}
+
+	#[test]
+	fn two_provided()
+	{
+		assert_eq!(two(PROVIDED), 30);
 	}
 }

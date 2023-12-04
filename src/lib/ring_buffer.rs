@@ -36,6 +36,18 @@ where
 		debug_assert_ne!(self.head, self.tail);
 		self.head = (self.head + 1) % N;
 	}
+
+	pub fn len(&self) -> usize
+	{
+		(self.tail + N - self.head) % N
+	}
+
+	pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T>
+	{
+		let len = self.len();
+		let (wrapped, afterhead) = self.buffer.split_at_mut(self.head);
+		afterhead.iter_mut().chain(wrapped.iter_mut()).take(len)
+	}
 }
 
 #[cfg(test)]
