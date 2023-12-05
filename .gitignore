@@ -10,7 +10,7 @@
 
 # private files
 src/bin/*/input.txt
-src/bin/*/provided.txt
+src/bin/*/provided*.txt
 
 # private keys
 /keys/
@@ -21,3 +21,6 @@ src/bin/*/provided.txt
 
 # editors
 /.vscode/
+
+# temporary files
+/download

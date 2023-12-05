@@ -6,3 +6,5 @@ day03 part one: 0.1 ms
 day03 part two: 0.0 ms
 day04 part one: 0.1 ms
 day04 part two: 0.1 ms
+day05 part one: 0.4 ms
+day05 part two: 0.2 ms
