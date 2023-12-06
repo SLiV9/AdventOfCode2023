@@ -2,8 +2,10 @@
 
 mod lib
 {
+	pub mod binary_search_range;
 	pub mod ring_buffer;
 }
+pub use binary_search_range::*;
 pub use lib::*;
 
 #[macro_export]

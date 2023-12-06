@@ -1,5 +1,6 @@
 /**/
 
+use aoc2023::binary_search_range;
 use aoc2023::run;
 
 const INPUT: &str = include_str!("input.txt");
@@ -10,7 +11,7 @@ pub fn main()
 	run!(two(INPUT));
 }
 
-fn one(input: &str) -> i32
+fn one(input: &str) -> i64
 {
 	let mut lines = input.lines();
 	let (_, time_line) = lines.next().unwrap().split_once(':').unwrap();
@@ -29,7 +30,7 @@ fn one(input: &str) -> i32
 	races.map(|(t, d)| win_race(t, d)).product()
 }
 
-fn win_race(time: i32, distance: i32) -> i32
+fn win_race(time: i64, distance: i64) -> i64
 {
 	let mut num_possibilities = 0;
 	let mut t = 1;
@@ -48,9 +49,39 @@ fn win_race(time: i32, distance: i32) -> i32
 	num_possibilities
 }
 
-fn two(input: &str) -> i32
+fn two(input: &str) -> i64
 {
-	input.len() as i32 * 0
+	let mut lines = input.lines();
+	let time = parse_badly_kerned_number(lines.next().unwrap());
+	let distance = parse_badly_kerned_number(lines.next().unwrap());
+
+	// This should be faster than whatever integer nonsense.
+	let root = (distance as f64).sqrt().ceil() as i64;
+	if 2 * root > time
+	{
+		return 0;
+	}
+
+	let start = binary_search_range(0..root, |t| t * (time - t) > distance);
+	let end = binary_search_range(root..time, |t| t * (time - t) <= distance);
+	let start = start.unwrap();
+	let end = end.unwrap();
+	end - start
+}
+
+fn parse_badly_kerned_number(line: &str) -> i64
+{
+	let (_, line) = line.split_once(':').unwrap();
+	let mut number = 0;
+	for x in line.as_bytes()
+	{
+		if x.is_ascii_digit()
+		{
+			number *= 10;
+			number += i64::from(x - b'0');
+		}
+	}
+	number
 }
 
 #[cfg(test)]
@@ -70,6 +101,6 @@ mod tests
 	#[test]
 	fn two_provided()
 	{
-		assert_eq!(two(PROVIDED), 0);
+		assert_eq!(two(PROVIDED), 71503);
 	}
 }
