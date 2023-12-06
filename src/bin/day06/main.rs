@@ -54,14 +54,7 @@ fn two(input: &str) -> i64
 	let mut lines = input.lines();
 	let time = parse_badly_kerned_number(lines.next().unwrap());
 	let distance = parse_badly_kerned_number(lines.next().unwrap());
-
-	// This should be faster than whatever integer nonsense.
 	let root = (distance as f64).sqrt().ceil() as i64;
-	if 2 * root > time
-	{
-		return 0;
-	}
-
 	let start = binary_search_range(0..root, |t| t * (time - t) > distance);
 	let end = binary_search_range(root..time, |t| t * (time - t) <= distance);
 	let start = start.unwrap();

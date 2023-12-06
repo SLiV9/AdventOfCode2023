@@ -44,7 +44,7 @@ pub fn binary_search_range(
 		{
 			if start + 1 == mid
 			{
-				return Some(end);
+				return Some(mid);
 			}
 			end = mid;
 			mid = (start + end) / 2;
@@ -58,5 +58,32 @@ pub fn binary_search_range(
 			start = mid;
 			mid = (start + end) / 2;
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests
+{
+	use super::*;
+
+	#[test]
+	fn test_binary_search_range()
+	{
+		let p = |x| x >= 37;
+		assert_eq!(binary_search_range(0..0, p), None);
+		assert_eq!(binary_search_range(37..37, p), None);
+		assert_eq!(binary_search_range(100..100, p), None);
+		assert_eq!(binary_search_range(0..100, p), Some(37));
+		assert_eq!(binary_search_range(1..100, p), Some(37));
+		assert_eq!(binary_search_range(2..100, p), Some(37));
+		assert_eq!(binary_search_range(3..100, p), Some(37));
+		assert_eq!(binary_search_range(4..100, p), Some(37));
+		assert_eq!(binary_search_range(22..54, p), Some(37));
+		assert_eq!(binary_search_range(-120..4838, p), Some(37));
+		assert_eq!(binary_search_range(37..100, p), Some(37));
+		assert_eq!(binary_search_range(0..38, p), Some(37));
+		assert_eq!(binary_search_range(37..38, p), Some(37));
+		assert_eq!(binary_search_range(0..37, p), None);
+		assert_eq!(binary_search_range(38..100, p), Some(38));
 	}
 }
