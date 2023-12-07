@@ -13,6 +13,11 @@ pub fn main()
 
 fn one(input: &str) -> i64
 {
+	solve(input, parse_hand_v1)
+}
+
+fn solve(input: &str, parse_hand: impl Fn(&str) -> u64) -> i64
+{
 	let lines = input.lines().filter(|x| !x.is_empty());
 	let mut hands: SmallVec<[u64; 1024]> = lines.map(parse_hand).collect();
 	debug_assert!(hands.len() < 1024);
@@ -24,24 +29,48 @@ fn one(input: &str) -> i64
 		.sum()
 }
 
-fn parse_hand(input: &str) -> u64
+fn parse_hand_v1(input: &str) -> u64
+{
+	parse_hand(input, card_from_ascii_v1)
+}
+
+fn parse_hand_v2(input: &str) -> u64
+{
+	parse_hand(input, card_from_ascii_v2)
+}
+
+fn parse_hand(input: &str, card_from_ascii: impl Fn(u8) -> u8) -> u64
 {
 	let bytes = input.as_bytes();
-	let mut hand: u64 = 0;
 	let mut cards = [0u8; 5];
 	for i in 0..5
 	{
-		let card = card_digit_from_ascii(bytes[i]);
+		cards[i] = card_from_ascii(bytes[i]);
+	}
+	let hand_kind: u8 = determine_hand(&cards);
+	let bid = parse_bid(&bytes[6..]);
+	hand_from_parts(cards, hand_kind, bid)
+}
+
+fn hand_from_parts(cards: [u8; 5], hand_kind: u8, bid: u16) -> u64
+{
+	let mut hand = 0;
+	for card in cards
+	{
 		debug_assert!(card <= 0xF);
 		hand <<= 4;
 		hand |= u64::from(card) << 32;
-		cards[i] = card;
 	}
-	let hand_kind: u8 = determine_hand(&cards);
 	debug_assert!(hand_kind <= 0xF);
 	hand |= u64::from(hand_kind) << 60;
+	hand |= u64::from(bid);
+	hand
+}
+
+fn parse_bid(bytes: &[u8]) -> u16
+{
 	let mut bid: u16 = 0;
-	for &x in &bytes[6..]
+	for &x in bytes
 	{
 		if x.is_ascii_digit()
 		{
@@ -49,11 +78,10 @@ fn parse_hand(input: &str) -> u64
 			bid += u16::from(x - b'0');
 		}
 	}
-	hand |= u64::from(bid);
-	hand
+	bid
 }
 
-fn card_digit_from_ascii(x: u8) -> u8
+fn card_from_ascii_v1(x: u8) -> u8
 {
 	match x
 	{
@@ -67,12 +95,44 @@ fn card_digit_from_ascii(x: u8) -> u8
 	}
 }
 
+fn card_from_ascii_v2(x: u8) -> u8
+{
+	match x
+	{
+		b'J' => 0x1,
+		b'2'..=b'9' => x - b'2' + 0x2,
+		b'T' => 0xA,
+		b'Q' => 0xC,
+		b'K' => 0xD,
+		b'A' => 0xE,
+		_ => panic!("Unexpected character token: '{x}'"),
+	}
+}
+
 fn determine_hand(cards: &[u8; 5]) -> u8
 {
 	let mut data: [u8; 5] = *cards;
 	let mut len = 5;
+	let num_jokers = {
+		let mut num_jokers = 0;
+		let mut i = 0;
+		while i < len
+		{
+			if data[i] == 0x1
+			{
+				data.swap(i, len - 1);
+				len -= 1;
+				num_jokers += 1;
+			}
+			else
+			{
+				i += 1;
+			}
+		}
+		num_jokers
+	};
 	let mut nums = [0usize; 2];
-	let mut num_offset = 0;
+	let mut offset_into_nums = 0;
 	for _ in 0..4
 	{
 		if len < 2
@@ -98,8 +158,23 @@ fn determine_hand(cards: &[u8; 5]) -> u8
 		}
 		if num_matches > 0
 		{
-			nums[num_offset] = num_matches + 1;
-			num_offset += 1;
+			nums[offset_into_nums] = num_matches + 1;
+			offset_into_nums += 1;
+		}
+	}
+	if nums[1] > nums[0]
+	{
+		nums.swap(0, 1);
+	}
+	if num_jokers > 0
+	{
+		if nums[0] == 0
+		{
+			nums[0] = std::cmp::min(num_jokers + 1, 5);
+		}
+		else
+		{
+			nums[0] += num_jokers;
 		}
 	}
 	match nums
@@ -108,7 +183,6 @@ fn determine_hand(cards: &[u8; 5]) -> u8
 		[4, 0] => 0xD,
 		[3, 2] => 0x6,
 		[3, 0] => 0x3,
-		[2, 3] => 0x6,
 		[2, 2] => 0x2,
 		[2, 0] => 0x1,
 		[0, 0] => 0x0,
@@ -124,9 +198,9 @@ fn bid_from_hand(hand: u64) -> i64
 	i64::from(bid)
 }
 
-fn two(input: &str) -> i32
+fn two(input: &str) -> i64
 {
-	input.len() as i32 * 0
+	solve(input, parse_hand_v2)
 }
 
 #[cfg(test)]
@@ -151,15 +225,26 @@ mod tests
 		assert_eq!(determine_hand(&[2, 8, 4, 2, 6]), 0x1);
 		assert_eq!(determine_hand(&[2, 2, 4, 4, 6]), 0x2);
 		assert_eq!(determine_hand(&[2, 4, 6, 4, 2]), 0x2);
+		assert_eq!(determine_hand(&[2, 2, 6, 4, 2]), 0x3);
 		assert_eq!(determine_hand(&[2, 3, 2, 3, 3]), 0x6);
-		assert_eq!(determine_hand(&[2, 3, 2, 3, 3]), 0x6);
+		assert_eq!(determine_hand(&[2, 2, 3, 2, 3]), 0x6);
 		assert_eq!(determine_hand(&[3, 3, 2, 3, 3]), 0xD);
 		assert_eq!(determine_hand(&[3, 3, 3, 3, 3]), 0xF);
+		// Jokers
+		assert_eq!(determine_hand(&[1, 2, 4, 5, 6]), 0x1);
+		assert_eq!(determine_hand(&[2, 8, 4, 1, 6]), 0x1);
+		assert_eq!(determine_hand(&[2, 2, 4, 1, 6]), 0x3);
+		assert_eq!(determine_hand(&[2, 1, 6, 4, 2]), 0x3);
+		assert_eq!(determine_hand(&[2, 1, 2, 3, 3]), 0x6);
+		assert_eq!(determine_hand(&[2, 3, 2, 3, 1]), 0x6);
+		assert_eq!(determine_hand(&[1, 1, 2, 3, 3]), 0xD);
+		assert_eq!(determine_hand(&[3, 3, 3, 3, 1]), 0xF);
+		assert_eq!(determine_hand(&[1, 1, 1, 1, 1]), 0xF);
 	}
 
 	#[test]
 	fn two_provided()
 	{
-		assert_eq!(two(PROVIDED), 0);
+		assert_eq!(two(PROVIDED), 5905);
 	}
 }
