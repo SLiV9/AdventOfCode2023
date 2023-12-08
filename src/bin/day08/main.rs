@@ -82,58 +82,66 @@ fn two(input: &str) -> usize
 {
 	let (instructions, rest) = input.split_once('\n').unwrap();
 	let graph = Graph::from_input(rest);
-	let mut instructions = instructions.as_bytes().iter().cycle();
-	let mut num_steps_taken = 0;
 
 	let first_end = (NUM_NAMES - MAX_NUM_GHOSTS) as u16;
-	let is_end = |x: u16| x >= first_end;
 
-	dbg!(graph.lefts.iter().filter(|&&x| is_end(x)).count());
-	dbg!(graph.rights.iter().filter(|&&x| is_end(x)).count());
-
-	let mut ixs = [0u16; MAX_NUM_GHOSTS];
+	let mut ghosts = [0u16; MAX_NUM_GHOSTS];
 	let num_ghosts = {
 		let mut num_ghosts = 0;
 		for i in 0..MAX_NUM_GHOSTS
 		{
 			if graph.lefts[i] != i as u16 || graph.rights[i] != i as u16
 			{
-				ixs[num_ghosts] = i as u16;
+				ghosts[num_ghosts] = i as u16;
 				num_ghosts += 1;
 			}
 		}
 		num_ghosts
 	};
 
-	for _ in 0..u64::from(u32::MAX)
+	let mut answer = 1;
+
+	for g in 0..num_ghosts
 	{
-		if ixs[0..num_ghosts].iter().cloned().all(is_end)
+		let mut i = ghosts[g];
+		let mut instructions = instructions.as_bytes().iter().cycle();
+		let mut num_steps_taken = 0;
+		while i < first_end
 		{
-			break;
-		}
-
-		if instructions.next().unwrap() == &b'L'
-		{
-			for i in 0..num_ghosts
+			if instructions.next().unwrap() == &b'L'
 			{
-				ixs[i] = graph.lefts[ixs[i] as usize];
+				i = graph.lefts[i as usize];
 			}
-		}
-		else
-		{
-			for i in 0..num_ghosts
+			else
 			{
-				ixs[i] = graph.rights[ixs[i] as usize];
+				i = graph.rights[i as usize];
 			}
+			num_steps_taken += 1;
 		}
-		num_steps_taken += 1;
-
-		if num_steps_taken % usize::from(u16::MAX) == 0
-		{
-			dbg!(num_steps_taken);
-		}
+		answer = lcm(answer, num_steps_taken);
 	}
-	num_steps_taken
+
+	answer
+}
+
+fn lcm(a: usize, b: usize) -> usize
+{
+	a / gcd(a, b) * b
+}
+
+fn gcd(mut a: usize, mut b: usize) -> usize
+{
+	if a < b
+	{
+		return gcd(b, a);
+	}
+	while b != 0
+	{
+		let c = a % b;
+		a = b;
+		b = c;
+	}
+	a
 }
 
 #[cfg(test)]
