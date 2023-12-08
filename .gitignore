@@ -9,7 +9,7 @@
 *.log.gz
 
 # private files
-src/bin/*/input.txt
+src/bin/*/input*.txt
 src/bin/*/provided*.txt
 
 # private keys
