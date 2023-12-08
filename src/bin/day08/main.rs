@@ -14,18 +14,36 @@ fn one(input: &str) -> usize
 {
 	let (instructions, rest) = input.split_once('\n').unwrap();
 	let graph = Graph::from_input(rest);
-	loop
+	let mut i = 0;
+	let mut instructions = instructions.as_bytes().iter().cycle();
+	let mut num_steps_taken = 0;
+	while i < NUM_NAMES - 1
 	{
-		todo!()
+		if instructions.next().unwrap() == &b'L'
+		{
+			i = graph.lefts[i] as usize;
+		}
+		else
+		{
+			i = graph.rights[i] as usize;
+		}
+		num_steps_taken += 1;
 	}
+	num_steps_taken
+}
+
+const NUM_NAMES: usize = 26 * 26 * 26;
+
+fn encode_name(name: &[u8]) -> u16
+{
+	name.iter().fold(0, |x, c| x * 26 + u16::from(c - b'A'))
 }
 
 #[derive(Debug)]
 struct Graph
 {
-	names: [[u8; 3]; 1024],
-	lefts: [usize; 1024],
-	rights: [usize; 1024],
+	lefts: [u16; NUM_NAMES],
+	rights: [u16; NUM_NAMES],
 }
 
 impl Graph
@@ -34,23 +52,20 @@ impl Graph
 	{
 		let lines = input.lines().filter(|x| !x.is_empty());
 		let mut graph = Graph {
-			names: [[0; 3]; 1024],
-			lefts: [0; 1024],
-			rights: [0; 1024],
+			lefts: [0; NUM_NAMES],
+			rights: [0; NUM_NAMES],
 		};
-		for (i, line) in lines.enumerate()
+		for line in lines
 		{
 			let line = line.as_bytes();
-			graph.names[i] = line[0..3].try_into().unwrap();
-			graph.lefts[i] = graph.find_fast(&line[8..11], i);
-			graph.rights[i] = graph.find_fast(&line[13..16], i);
+			let cur = encode_name(&line[0..3]);
+			let left = encode_name(&line[7..10]);
+			let right = encode_name(&line[12..15]);
+			let i = cur as usize;
+			graph.lefts[i] = left;
+			graph.rights[i] = right;
 		}
 		graph
-	}
-
-	fn find_fast(&self, name: &[u8], len: usize) -> usize
-	{
-		self.names.iter().take(len).position(|x| x == name).unwrap()
 	}
 }
 
@@ -68,6 +83,19 @@ mod tests
 	const PROVIDED: &str = include_str!("provided.txt");
 	const PROVIDED_SHUFFLED: &str = include_str!("provided_shuffled.txt");
 	const PROVIDED2: &str = include_str!("provided2.txt");
+
+	#[test]
+	fn sanity()
+	{
+		assert!(NUM_NAMES < usize::from(u16::MAX));
+	}
+
+	#[test]
+	fn test_encode_name()
+	{
+		assert_eq!(encode_name("AAA".as_bytes()), 0);
+		assert_eq!(usize::from(encode_name("ZZZ".as_bytes())), NUM_NAMES - 1);
+	}
 
 	#[test]
 	fn one_provided()
