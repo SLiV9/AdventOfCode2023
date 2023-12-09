@@ -16,3 +16,5 @@ day08 part one: 0.1 ms
 day08 part two: 14012.8 ms
 day08 part one: 0.1 ms
 day08 part two: 0.2 ms
+day09 part one: 0.1 ms
+day09 part two: 0.1 ms
