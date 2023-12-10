@@ -12,11 +12,12 @@ pub fn main()
 	run!(two(INPUT));
 }
 
-fn one(input: &str) -> usize
+fn parse_input(
+	input: &str,
+	grid: &mut [[u8; GRID_SIZE]; GRID_SIZE],
+	start: &mut Point,
+)
 {
-	let mut grid = [[0u8; GRID_SIZE]; GRID_SIZE];
-	let mut start = Point::default();
-
 	for (i, line) in input.lines().filter(|x| !x.is_empty()).enumerate()
 	{
 		let row = i + 1;
@@ -28,17 +29,32 @@ fn one(input: &str) -> usize
 			start.col = j + 1;
 		}
 	}
+}
 
-	let mut probes = [start.up(), start.down(), start.left(), start.right()]
+fn get_probes(
+	start: Point,
+	grid: &[[u8; GRID_SIZE]; GRID_SIZE],
+) -> (Probe, Probe)
+{
+	let mut probes = [start.right(), start.up(), start.left(), start.down()]
 		.into_iter()
 		.filter(|point| point.adjacents(&grid).contains(&start))
 		.map(|point| Probe {
 			curr: point,
 			prev: start,
 		});
-	let mut a = probes.next().unwrap();
-	let mut b = probes.next().unwrap();
+	let a = probes.next().unwrap();
+	let b = probes.next().unwrap();
+	(a, b)
+}
 
+fn one(input: &str) -> usize
+{
+	let mut grid = [[0u8; GRID_SIZE]; GRID_SIZE];
+	let mut start = Point::default();
+	parse_input(input, &mut grid, &mut start);
+
+	let (mut a, mut b) = get_probes(start, &grid);
 	for round in 2..(GRID_SIZE * GRID_SIZE)
 	{
 		a = a.step(&grid);
@@ -93,9 +109,19 @@ impl Point
 		}
 	}
 
+	fn pipe(&self, grid: &[[u8; GRID_SIZE]; GRID_SIZE]) -> u8
+	{
+		grid[self.row][self.col]
+	}
+
 	fn adjacents(&self, grid: &[[u8; GRID_SIZE]; GRID_SIZE]) -> [Point; 2]
 	{
-		match grid[self.row][self.col]
+		self.adjacents_for_pipe(self.pipe(grid))
+	}
+
+	fn adjacents_for_pipe(&self, pipe: u8) -> [Point; 2]
+	{
+		match pipe
 		{
 			b'|' => [self.up(), self.down()],
 			b'-' => [self.left(), self.right()],
@@ -117,7 +143,7 @@ struct Probe
 
 impl Probe
 {
-	fn step(&mut self, grid: &[[u8; GRID_SIZE]; GRID_SIZE]) -> Probe
+	fn step(&self, grid: &[[u8; GRID_SIZE]; GRID_SIZE]) -> Probe
 	{
 		let points = self.curr.adjacents(grid);
 		let next = if points[0] != self.prev
@@ -135,9 +161,244 @@ impl Probe
 	}
 }
 
-fn two(input: &str) -> i32
+#[derive(Debug, Clone, Copy, Default)]
+struct Painter
 {
-	input.len() as i32 * 0
+	curr: Point,
+	prev: Point,
+	is_reversed: bool,
+}
+
+impl From<Probe> for Painter
+{
+	fn from(probe: Probe) -> Painter
+	{
+		Painter {
+			curr: probe.curr,
+			prev: probe.prev,
+			is_reversed: false,
+		}
+	}
+}
+
+impl Painter
+{
+	fn step(
+		&self,
+		grid: &[[u8; GRID_SIZE]; GRID_SIZE],
+		wall: &mut [[u8; GRID_SIZE]; GRID_SIZE],
+		num_twos: &mut usize,
+		num_threes: &mut usize,
+	) -> Painter
+	{
+		let curr = self.curr;
+		let pipe = curr.pipe(grid);
+
+		match wall[curr.row][curr.col]
+		{
+			2 => *num_twos -= 1,
+			3 => *num_threes -= 1,
+			0 => (),
+			6 => (),
+			_ => unreachable!(),
+		}
+		wall[curr.row][curr.col] = 1;
+
+		let exits = match pipe
+		{
+			b'|' => [curr.up(), curr.down()],
+			b'-' => [curr.right(), curr.left()],
+			b'L' => [curr.right(), curr.up()],
+			b'J' => [curr.up(), curr.left()],
+			b'7' => [curr.down(), curr.left()],
+			b'F' => [curr.right(), curr.down()],
+			_ => return *self,
+		};
+
+		let mut sides = match pipe
+		{
+			b'|' => [curr.left(), curr.right()],
+			b'-' => [curr.up(), curr.down()],
+			b'L' => [curr.down().left(), curr.up().right()],
+			b'J' => [curr.up().left(), curr.down().right()],
+			b'7' => [curr.up().right(), curr.down().left()],
+			b'F' => [curr.up().left(), curr.down().right()],
+			_ => return *self,
+		};
+		if (pipe == b'L' || pipe == b'7') && exits[0] == self.prev
+		{
+			sides.swap(0, 1);
+		}
+		if self.is_reversed
+		{
+			sides.swap(0, 1);
+		}
+		for i in 0..2
+		{
+			let side = sides[i];
+			let color = 2 + i as u8;
+			match wall[side.row][side.col]
+			{
+				0 =>
+				{
+					wall[side.row][side.col] = color;
+					if color == 2
+					{
+						*num_twos += 1;
+					}
+					else
+					{
+						*num_threes += 1;
+					}
+				}
+				1 => (),
+				2 if color == 2 => (),
+				3 if color == 3 => (),
+				2 =>
+				{
+					*num_twos -= 1;
+					wall[side.row][side.col] = 6;
+				}
+				3 =>
+				{
+					*num_threes -= 1;
+					wall[side.row][side.col] = 6;
+				}
+				6 => (),
+				_ => unreachable!(),
+			}
+		}
+
+		let next = if exits[0] != self.prev
+		{
+			exits[0]
+		}
+		else
+		{
+			exits[1]
+		};
+
+		let should_flip = match pipe
+		{
+			b'|' => false,
+			b'-' => false,
+			b'L' => true,
+			b'J' => false,
+			b'7' => true,
+			b'F' => false,
+			_ => unreachable!(),
+		};
+
+		Painter {
+			curr: next,
+			prev: self.curr,
+			is_reversed: self.is_reversed != should_flip,
+		}
+	}
+}
+
+fn two(input: &str) -> usize
+{
+	let mut grid = [[0u8; GRID_SIZE]; GRID_SIZE];
+	let mut start = Point::default();
+	parse_input(input, &mut grid, &mut start);
+
+	let mut wall = [[0u8; GRID_SIZE]; GRID_SIZE];
+	let mut num_twos = 0;
+	let mut num_threes = 0;
+	wall[start.row][start.col] = 1;
+
+	let (a, b) = get_probes(start, &grid);
+	let mut a = Painter::from(a);
+	let mut b = Painter::from(b);
+	{
+		let dr = b.curr.row as i32 - a.curr.row as i32;
+		let dc = b.curr.col as i32 - a.curr.col as i32;
+		if (dr * dc) > 0
+		{
+			b.is_reversed = true;
+		}
+	}
+
+	while a.curr != b.curr
+	{
+		a = a.step(&grid, &mut wall, &mut num_twos, &mut num_threes);
+		b = b.step(&grid, &mut wall, &mut num_twos, &mut num_threes);
+	}
+
+	match wall[a.curr.row][a.curr.col]
+	{
+		2 => num_twos -= 1,
+		3 => num_threes -= 1,
+		0 => (),
+		6 => (),
+		_ => unreachable!(),
+	}
+	wall[a.curr.row][a.curr.col] = 1;
+
+	// println!("{}", debug_grid_wall(&grid, &wall));
+
+	let inside_color: u8 = if num_twos < num_threes { 2 } else { 3 };
+	let mut num_inside = std::cmp::min(num_twos, num_threes);
+
+	let mut old_num_inside = 0;
+	while old_num_inside < num_inside
+	{
+		old_num_inside = num_inside;
+
+		for r in 1..(GRID_SIZE - 1)
+		{
+			for c in 1..(GRID_SIZE - 1)
+			{
+				if wall[r][c] != 0
+				{
+					continue;
+				}
+				if wall[r - 1][c] == inside_color
+					|| wall[r + 1][c] == inside_color
+					|| wall[r][c - 1] == inside_color
+					|| wall[r][c + 1] == inside_color
+				{
+					wall[r][c] = inside_color;
+					num_inside += 1;
+				}
+			}
+		}
+	}
+
+	// println!("{}", debug_grid_wall(&grid, &wall));
+
+	num_inside
+}
+
+#[allow(unused)]
+fn debug_grid_wall(
+	grid: &[[u8; GRID_SIZE]; GRID_SIZE],
+	wall: &[[u8; GRID_SIZE]; GRID_SIZE],
+) -> String
+{
+	use std::fmt::Write;
+	let mut output = String::new();
+	writeln!(&mut output);
+	for r in 0..GRID_SIZE
+	{
+		for c in 0..GRID_SIZE
+		{
+			let color = wall[r][c];
+			let x = match color
+			{
+				0 => ' ',
+				1 => char::from(grid[r][c]),
+				2 => '2',
+				3 => '3',
+				_ => '?',
+			};
+			output.push(x);
+		}
+		writeln!(&mut output);
+	}
+	writeln!(&mut output);
+	output
 }
 
 #[cfg(test)]
@@ -150,6 +411,9 @@ mod tests
 	const PROVIDED_CLEAN: &str = include_str!("provided_clean.txt");
 	const PROVIDED_ALT: &str = include_str!("provided_alt.txt");
 	const PROVIDED_ALT_CLEAN: &str = include_str!("provided_alt_clean.txt");
+	const PROVIDED_TWO: &str = include_str!("provided_two.txt");
+	const PROVIDED_TWO_N: &str = include_str!("provided_two_n.txt");
+	const PROVIDED_TWO_TIGHT: &str = include_str!("provided_two_tight.txt");
 
 	#[test]
 	fn one_provided_clean()
@@ -178,6 +442,30 @@ mod tests
 	#[test]
 	fn two_provided()
 	{
-		assert_eq!(two(PROVIDED), 0);
+		assert_eq!(two(PROVIDED), 1);
+	}
+
+	#[test]
+	fn two_provided_alt()
+	{
+		assert_eq!(two(PROVIDED_ALT), 1);
+	}
+
+	#[test]
+	fn two_provided_two_n()
+	{
+		assert_eq!(two(PROVIDED_TWO_N), 4);
+	}
+
+	#[test]
+	fn two_provided_two_tight()
+	{
+		assert_eq!(two(PROVIDED_TWO_TIGHT), 4);
+	}
+
+	#[test]
+	fn two_provided_two_full()
+	{
+		assert_eq!(two(PROVIDED_TWO), 10);
 	}
 }
