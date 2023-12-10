@@ -215,28 +215,53 @@ impl Painter
 			_ => return *self,
 		};
 
-		let mut sides = match pipe
+		let sides = match pipe
 		{
-			b'|' => [curr.left(), curr.right()],
-			b'-' => [curr.up(), curr.down()],
-			b'L' => [curr.down().left(), curr.up().right()],
-			b'J' => [curr.up().left(), curr.down().right()],
-			b'7' => [curr.up().right(), curr.down().left()],
-			b'F' => [curr.up().left(), curr.down().right()],
+			b'|' => [curr.left(), curr.right(), curr, curr],
+			b'-' => [curr.up(), curr.down(), curr, curr],
+			b'L' => [
+				curr.down().left(),
+				curr.up().right(),
+				curr.down(),
+				curr.left(),
+			],
+			b'J' => [
+				curr.down().right(),
+				curr.up().left(),
+				curr.down(),
+				curr.right(),
+			],
+			b'7' => [
+				curr.up().right(),
+				curr.down().left(),
+				curr.up(),
+				curr.right(),
+			],
+			b'F' => [
+				curr.up().left(),
+				curr.down().right(),
+				curr.up(),
+				curr.left(),
+			],
 			_ => return *self,
 		};
+		let mut colors = [2, 3];
 		if (pipe == b'L' || pipe == b'7') && exits[0] == self.prev
 		{
-			sides.swap(0, 1);
+			colors.swap(0, 1);
+		}
+		else if pipe == b'J'
+		{
+			colors.swap(0, 1);
 		}
 		if self.is_reversed
 		{
-			sides.swap(0, 1);
+			colors.swap(0, 1);
 		}
-		for i in 0..2
+		for (i, side) in sides.into_iter().enumerate()
 		{
-			let side = sides[i];
-			let color = 2 + i as u8;
+			let color_offset = if i == 1 { 1 } else { 0 };
+			let color = colors[color_offset];
 			match wall[side.row][side.col]
 			{
 				0 =>
@@ -361,6 +386,13 @@ fn two(input: &str) -> usize
 				{
 					wall[r][c] = inside_color;
 					num_inside += 1;
+				}
+				else if wall[r - 1][c] == 1
+					&& wall[r + 1][c] == 1
+					&& wall[r][c - 1] == 1
+					&& wall[r][c + 1] == 1
+				{
+					unreachable!();
 				}
 			}
 		}
