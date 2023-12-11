@@ -15,16 +15,16 @@ pub fn main()
 #[derive(Debug, Clone, Copy)]
 struct Galaxy
 {
-	row: i32,
-	col: i32,
+	row: i64,
+	col: i64,
 }
 
-fn one(input: &str) -> i32
+fn one(input: &str) -> i64
 {
 	solve(input, 2)
 }
 
-fn solve(input: &str, multiplier: i32) -> i32
+fn solve(input: &str, multiplier: i64) -> i64
 {
 	let mut galaxies: SmallVec<[Galaxy; 1024]> = SmallVec::new();
 	let mut is_row_inhabited: BitArray<[u64; 3]> = BitArray::default();
@@ -38,8 +38,8 @@ fn solve(input: &str, multiplier: i32) -> i32
 			if *x == b'#'
 			{
 				galaxies.push(Galaxy {
-					row: r as i32,
-					col: c as i32,
+					row: r as i64,
+					col: c as i64,
 				});
 				is_row_inhabited.set(r, true);
 				is_col_inhabited.set(c, true);
@@ -84,8 +84,8 @@ fn solve(input: &str, multiplier: i32) -> i32
 		for j in 0..i
 		{
 			let b = galaxies[j];
-			let dr = (a.row as i32 - b.row as i32).abs();
-			let dc = (a.col as i32 - b.col as i32).abs();
+			let dr = (a.row as i64 - b.row as i64).abs();
+			let dc = (a.col as i64 - b.col as i64).abs();
 			let distance = dr + dc;
 			// println!("From #{} to #{} is {distance}", j + 1, i + 1);
 			sum_of_distances += distance;
@@ -94,9 +94,9 @@ fn solve(input: &str, multiplier: i32) -> i32
 	sum_of_distances
 }
 
-fn two(input: &str) -> i32
+fn two(input: &str) -> i64
 {
-	input.len() as i32 * 0
+	solve(input, 1_000_000)
 }
 
 #[cfg(test)]
@@ -111,11 +111,5 @@ mod tests
 	fn one_provided()
 	{
 		assert_eq!(one(PROVIDED), 374);
-	}
-
-	#[test]
-	fn two_provided()
-	{
-		assert_eq!(two(PROVIDED), 0);
 	}
 }
