@@ -31,6 +31,9 @@ fn solve(line: &str) -> usize
 	let mut num_possibilities = 0;
 	'stack: while let Some(mut probe) = stack.pop()
 	{
+		// let mut minimal_width: usize =
+		// 	numbers[probe.number_offset..].iter().map(|&x| x + 1).sum();
+		// minimal_width -= 1;
 		while probe.symbol_offset < symbols.len()
 		{
 			match symbols[probe.symbol_offset]
@@ -50,6 +53,9 @@ fn solve(line: &str) -> usize
 						let number = numbers[probe.number_offset];
 						probe.gap_bits = 1 << number;
 						probe.set_bits = probe.gap_bits - 1;
+						let mask = u64::from(probe.set_bits);
+						assert!(number < 32);
+						probe.historic_bits |= mask << (32 - number);
 						probe.number_offset += 1;
 					}
 					else
@@ -93,13 +99,16 @@ fn solve(line: &str) -> usize
 							number_offset: probe.number_offset,
 							set_bits: 0,
 							gap_bits: 0,
-							historic_bits: probe.historic_bits,
+							historic_bits: (probe.historic_bits << 1),
 						};
 						stack.push(alt);
 
 						let number = numbers[probe.number_offset];
 						probe.gap_bits = 1 << number;
 						probe.set_bits = probe.gap_bits - 1;
+						let mask = u64::from(probe.set_bits);
+						assert!(number < 32);
+						probe.historic_bits |= mask << (32 - number);
 						probe.number_offset += 1;
 					}
 					else
@@ -114,11 +123,14 @@ fn solve(line: &str) -> usize
 			probe.gap_bits >>= 1;
 			probe.historic_bits <<= 1;
 		}
-		if probe.number_offset == numbers.len()
+		if probe.number_offset == numbers.len() && probe.set_bits == 0
 		{
+			// dbg!(format!("{:064b}", probe.historic_bits >> 31));
+			// dbg!(probe);
 			num_possibilities += 1;
 		}
 	}
+	// dbg!(num_possibilities);
 	num_possibilities
 }
 
@@ -129,7 +141,7 @@ struct Probe
 	number_offset: usize,
 	set_bits: u32,
 	gap_bits: u32,
-	historic_bits: u32,
+	historic_bits: u64,
 }
 
 fn two(input: &str) -> usize
@@ -149,6 +161,12 @@ mod tests
 	fn one_provided()
 	{
 		assert_eq!(one(PROVIDED), 21);
+	}
+
+	#[test]
+	fn one_edge_case_end()
+	{
+		assert_eq!(solve("#..??## 1,4"), 1);
 	}
 
 	#[test]
