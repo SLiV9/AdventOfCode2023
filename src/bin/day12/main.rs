@@ -146,7 +146,28 @@ struct Probe
 
 fn two(input: &str) -> usize
 {
-	input.len() * 0
+	input
+		.lines()
+		.filter(|x| !x.is_empty())
+		.map(|x| {
+			let (symbols, numbers) = x.split_once(' ').unwrap();
+			let mut x = symbols.to_string();
+			for _ in 0..4
+			{
+				x.push('?');
+				x.push_str(symbols);
+			}
+			x.push(' ');
+			x.push_str(numbers);
+			for _ in 0..4
+			{
+				x.push(',');
+				x.push_str(numbers);
+			}
+			// dbg!(&x);
+			solve(&x)
+		})
+		.sum()
 }
 
 #[cfg(test)]
@@ -172,6 +193,6 @@ mod tests
 	#[test]
 	fn two_provided()
 	{
-		assert_eq!(two(PROVIDED), 0);
+		assert_eq!(two(PROVIDED), 525152);
 	}
 }
