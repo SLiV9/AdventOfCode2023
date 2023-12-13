@@ -13,6 +13,15 @@ pub fn main()
 
 fn one(input: &str) -> usize
 {
+	let mirror_maker = || PerfectMirror { is_valid: true };
+	solve(input, mirror_maker)
+}
+
+fn solve<F, M>(input: &str, mirror_maker: F) -> usize
+where
+	F: Fn() -> M,
+	M: Mirror,
+{
 	let lines = input.lines().chain(std::iter::once(""));
 	let mut rows: SmallVec<[u32; 32]> = SmallVec::new();
 	let mut cols: SmallVec<[u32; 32]> = SmallVec::new();
@@ -32,7 +41,7 @@ fn one(input: &str) -> usize
 			// 	dbg!(format!("{col:032b}"));
 			// }
 
-			let value = solve(&rows, &cols);
+			let value = solve_grid(&rows, &cols, &mirror_maker);
 			// dbg!(value);
 			answer += value;
 
@@ -66,28 +75,75 @@ fn one(input: &str) -> usize
 	answer
 }
 
-fn solve(rows: &[u32], cols: &[u32]) -> usize
+trait Mirror
+{
+	fn reflect(&mut self, a: u32, b: u32) -> bool;
+	fn resolve(self) -> bool;
+}
+
+struct PerfectMirror
+{
+	is_valid: bool,
+}
+
+impl Mirror for PerfectMirror
+{
+	fn reflect(&mut self, a: u32, b: u32) -> bool
+	{
+		self.is_valid = self.is_valid && a == b;
+		self.is_valid
+	}
+
+	fn resolve(self) -> bool
+	{
+		self.is_valid
+	}
+}
+
+struct SmudgedMirror
+{
+	num_smudges: u32,
+}
+
+impl Mirror for SmudgedMirror
+{
+	fn reflect(&mut self, a: u32, b: u32) -> bool
+	{
+		let differences = a ^ b;
+		self.num_smudges += differences.count_ones();
+		self.num_smudges <= 1
+	}
+
+	fn resolve(self) -> bool
+	{
+		self.num_smudges == 1
+	}
+}
+
+fn solve_grid<F, M>(rows: &[u32], cols: &[u32], mirror_maker: F) -> usize
+where
+	F: Fn() -> M,
+	M: Mirror,
 {
 	for r in 1..rows.len()
 	{
 		let mut r0 = r - 1;
 		let mut r1 = r;
-		if rows[r0] != rows[r1]
+		let mut mirror = mirror_maker();
+		if !mirror.reflect(rows[r0], rows[r1])
 		{
 			continue;
 		}
-		let mut is_solution = true;
 		while r0 > 0 && r1 + 1 < rows.len()
 		{
 			r0 -= 1;
 			r1 += 1;
-			if rows[r0] != rows[r1]
+			if !mirror.reflect(rows[r0], rows[r1])
 			{
-				is_solution = false;
 				break;
 			}
 		}
-		if is_solution
+		if mirror.resolve()
 		{
 			return 100 * r;
 		}
@@ -97,22 +153,21 @@ fn solve(rows: &[u32], cols: &[u32]) -> usize
 	{
 		let mut c0 = c - 1;
 		let mut c1 = c;
-		if cols[c0] != cols[c1]
+		let mut mirror = mirror_maker();
+		if !mirror.reflect(cols[c0], cols[c1])
 		{
 			continue;
 		}
-		let mut is_solution = true;
 		while c0 > 0 && c1 + 1 < cols.len()
 		{
 			c0 -= 1;
 			c1 += 1;
-			if cols[c0] != cols[c1]
+			if !mirror.reflect(cols[c0], cols[c1])
 			{
-				is_solution = false;
 				break;
 			}
 		}
-		if is_solution
+		if mirror.resolve()
 		{
 			return c;
 		}
@@ -121,9 +176,10 @@ fn solve(rows: &[u32], cols: &[u32]) -> usize
 	panic!("No symmetry detected");
 }
 
-fn two(input: &str) -> i32
+fn two(input: &str) -> usize
 {
-	input.len() as i32 * 0
+	let mirror_maker = || SmudgedMirror { num_smudges: 0 };
+	solve(input, mirror_maker)
 }
 
 #[cfg(test)]
@@ -143,6 +199,6 @@ mod tests
 	#[test]
 	fn two_provided()
 	{
-		assert_eq!(two(PROVIDED), 0);
+		assert_eq!(two(PROVIDED), 400);
 	}
 }
