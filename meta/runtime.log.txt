@@ -23,3 +23,6 @@ day11 part two: 0.1 ms
 day12 part one: 0.9 ms
 day13 part one: 0.1 ms
 day13 part two: 0.1 ms
+day14 part one: 0.1 ms
+day14 part one: 0.1 ms
+day14 part two: 34.6 ms
