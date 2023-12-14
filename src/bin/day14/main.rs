@@ -265,16 +265,16 @@ fn run_simulation(input: &str, num_iterations: usize) -> u32
 
 		if t % 4 == 3
 		{
-			// dbg!(t);
+			dbg!(t);
 			let load = boulder_grid.load_on_north_pillar(num_rows);
-			// dbg!(load);
+			dbg!(load);
 			historic_loads.push(load);
 
 			if t > 400
 			{
 				for k in 1..80
 				{
-					if (num_iterations - (t + 1)) % k != 0
+					if (num_iterations - (t + 1)) % (4 * k) != 0
 					{
 						continue;
 					}
@@ -283,6 +283,7 @@ fn run_simulation(input: &str, num_iterations: usize) -> u32
 						.map(|j| historic_loads[i - k * j])
 						.all(|x| x == load)
 					{
+						dbg!(k);
 						return load;
 					}
 				}
