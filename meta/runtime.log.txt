@@ -29,3 +29,4 @@ day15 part one: 0.1 ms
 day15 part two: 1.5 ms
 day16 part one: 0.1 ms
 day16 part two: 9.7 ms
+day17 part one: 50.6 ms
