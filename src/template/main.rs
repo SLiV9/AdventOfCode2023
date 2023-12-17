@@ -10,14 +10,14 @@ pub fn main()
 	run!(two(INPUT));
 }
 
-fn one(input: &str) -> i32
+fn one(input: &str) -> usize
 {
-	input.len() as i32 * 0
+	input.len() * 0
 }
 
-fn two(input: &str) -> i32
+fn two(input: &str) -> usize
 {
-	input.len() as i32 * 0
+	input.len() * 0
 }
 
 #[cfg(test)]
