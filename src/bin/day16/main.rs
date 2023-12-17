@@ -1,5 +1,3 @@
-use std::{f32::consts::E, rc::Weak};
-
 /**/
 
 use aoc2023::run;
@@ -18,6 +16,18 @@ pub fn main()
 fn one(input: &str) -> usize
 {
 	let mut grid = [[0; GRID_SIZE]; GRID_SIZE];
+	let (num_rows, num_cols) = parse_grid(&mut grid, input);
+
+	let head = Head {
+		row: 0,
+		col: 0,
+		direction: EAST,
+	};
+	energize_grid(&mut grid, num_rows, num_cols, head)
+}
+
+fn parse_grid(grid: &mut [[u8; 128]; 128], input: &str) -> (usize, usize)
+{
 	let lines = input.lines().filter(|x| !x.is_empty()).enumerate();
 	let mut num_rows = 0;
 	let mut num_cols = 0;
@@ -36,12 +46,18 @@ fn one(input: &str) -> usize
 		print_contraptions(&grid, num_rows, num_cols);
 	}
 
+	(num_rows, num_cols)
+}
+
+fn energize_grid(
+	grid: &mut [[u8; 128]; 128],
+	num_rows: usize,
+	num_cols: usize,
+	head: Head,
+) -> usize
+{
 	let mut stack: SmallVec<[Head; 128]> = SmallVec::new();
-	stack.push(Head {
-		row: 0,
-		col: 0,
-		direction: EAST,
-	});
+	stack.push(head);
 
 	'withstack: while let Some(head) = stack.pop()
 	{
@@ -246,9 +262,56 @@ fn count_energized(
 		.sum()
 }
 
+fn clear_grid(grid: &mut [[u8; GRID_SIZE]; GRID_SIZE])
+{
+	for row in grid
+	{
+		for cell in row
+		{
+			*cell = *cell & CONTRAPTION_BITS;
+		}
+	}
+}
+
 fn two(input: &str) -> usize
 {
-	input.len() * 0
+	let mut grid = [[0; GRID_SIZE]; GRID_SIZE];
+	let (num_rows, num_cols) = parse_grid(&mut grid, input);
+
+	(0..std::cmp::max(num_rows, num_cols))
+		.flat_map(|i| {
+			[
+				Head {
+					row: i,
+					col: 0,
+					direction: EAST,
+				},
+				Head {
+					row: i,
+					col: num_cols - 1,
+					direction: WEST,
+				},
+				Head {
+					row: 0,
+					col: i,
+					direction: SOUTH,
+				},
+				Head {
+					row: num_rows - 1,
+					col: i,
+					direction: NORTH,
+				},
+			]
+			.into_iter()
+		})
+		.filter(|head| head.row < num_rows && head.col < num_cols)
+		.map(|head| {
+			let result = energize_grid(&mut grid, num_rows, num_cols, head);
+			clear_grid(&mut grid);
+			result
+		})
+		.max()
+		.unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -266,8 +329,23 @@ mod tests
 	}
 
 	#[test]
+	fn two_best_provided()
+	{
+		let mut grid = [[0; GRID_SIZE]; GRID_SIZE];
+		let (num_rows, num_cols) = parse_grid(&mut grid, PROVIDED);
+
+		let head = Head {
+			row: 0,
+			col: 3,
+			direction: SOUTH,
+		};
+		let energy = energize_grid(&mut grid, num_rows, num_cols, head);
+		assert_eq!(energy, 51);
+	}
+
+	#[test]
 	fn two_provided()
 	{
-		assert_eq!(two(PROVIDED), 0);
+		assert_eq!(two(PROVIDED), 51);
 	}
 }
