@@ -8,8 +8,6 @@ const INPUT: &str = include_str!("input.txt");
 
 const GRID_SIZE: usize = 192;
 
-const MAX_STRAIN: u8 = 2;
-
 pub fn main()
 {
 	run!(one(INPUT));
@@ -27,7 +25,35 @@ fn one(input: &str) -> usize
 		col: (num_cols - 1) as u8,
 	};
 
-	find_least_cost_with_a_star(&cost_grid, num_rows, num_cols, start, target)
+	find_least_cost_with_a_star(
+		&cost_grid,
+		num_rows,
+		num_cols,
+		start,
+		target,
+		CrucibleModel::Regular,
+	)
+}
+
+fn two(input: &str) -> usize
+{
+	let mut cost_grid = [[0; GRID_SIZE]; GRID_SIZE];
+	let (num_rows, num_cols) = parse_grid(&mut cost_grid, input);
+
+	let start = Explorer::default();
+	let target = Point {
+		row: (num_rows - 1) as u8,
+		col: (num_cols - 1) as u8,
+	};
+
+	find_least_cost_with_a_star(
+		&cost_grid,
+		num_rows,
+		num_cols,
+		start,
+		target,
+		CrucibleModel::Ultra,
+	)
 }
 
 fn parse_grid(
@@ -138,12 +164,44 @@ struct Explorer
 	strain: u8,
 }
 
+#[derive(Debug, Clone, Copy)]
+enum CrucibleModel
+{
+	Regular,
+	Ultra,
+}
+
+impl CrucibleModel
+{
+	fn max_strain(self) -> u8
+	{
+		match self
+		{
+			CrucibleModel::Regular => 2,
+			CrucibleModel::Ultra => 9,
+		}
+	}
+
+	fn min_strain(self) -> u8
+	{
+		match self
+		{
+			CrucibleModel::Regular => 0,
+			CrucibleModel::Ultra => 3,
+		}
+	}
+}
+
 impl Explorer
 {
-	fn step_forward(self, num_rows: usize, num_cols: usize)
-		-> Option<Explorer>
+	fn step_forward(
+		self,
+		num_rows: usize,
+		num_cols: usize,
+		model: CrucibleModel,
+	) -> Option<Explorer>
 	{
-		if self.strain == MAX_STRAIN
+		if self.strain == model.max_strain()
 		{
 			return None;
 		}
@@ -155,8 +213,17 @@ impl Explorer
 		})
 	}
 
-	fn turn_left(self, num_rows: usize, num_cols: usize) -> Option<Explorer>
+	fn turn_left(
+		self,
+		num_rows: usize,
+		num_cols: usize,
+		model: CrucibleModel,
+	) -> Option<Explorer>
 	{
+		if self.strain < model.min_strain()
+		{
+			return None;
+		}
 		let facing = self.facing.turn_left();
 		let at = self.at.step(facing, num_rows, num_cols)?;
 		Some(Explorer {
@@ -166,8 +233,17 @@ impl Explorer
 		})
 	}
 
-	fn turn_right(self, num_rows: usize, num_cols: usize) -> Option<Explorer>
+	fn turn_right(
+		self,
+		num_rows: usize,
+		num_cols: usize,
+		model: CrucibleModel,
+	) -> Option<Explorer>
 	{
+		if self.strain < model.min_strain()
+		{
+			return None;
+		}
 		let facing = self.facing.turn_right();
 		let at = self.at.step(facing, num_rows, num_cols)?;
 		Some(Explorer {
@@ -191,6 +267,7 @@ fn find_least_cost_with_a_star(
 	num_cols: usize,
 	start: Explorer,
 	target: Point,
+	model: CrucibleModel,
 ) -> usize
 {
 	let manhattan_distance = |from: Point, to: Point| {
@@ -222,15 +299,15 @@ fn find_least_cost_with_a_star(
 		}) = candidate;
 		let g_score = g_score_map[&explorer];
 		let neighbors = [
-			explorer.step_forward(num_rows, num_cols),
-			explorer.turn_left(num_rows, num_cols),
-			explorer.turn_right(num_rows, num_cols),
+			explorer.step_forward(num_rows, num_cols, model),
+			explorer.turn_left(num_rows, num_cols, model),
+			explorer.turn_right(num_rows, num_cols, model),
 		];
 		for next in neighbors.into_iter().filter_map(|x| x)
 		{
 			let cost = get_cost(next) as usize;
 			let g_score = g_score + cost;
-			if next.at == target
+			if next.at == target && next.strain >= model.min_strain()
 			{
 				return g_score;
 			}
@@ -247,11 +324,6 @@ fn find_least_cost_with_a_star(
 	unreachable!()
 }
 
-fn two(input: &str) -> usize
-{
-	input.len() * 0
-}
-
 #[cfg(test)]
 mod tests
 {
@@ -259,6 +331,7 @@ mod tests
 	use pretty_assertions::assert_eq;
 
 	const PROVIDED: &str = include_str!("provided.txt");
+	const PROVIDED2: &str = include_str!("provided2.txt");
 
 	#[test]
 	fn one_provided()
@@ -275,6 +348,12 @@ mod tests
 	#[test]
 	fn two_provided()
 	{
-		assert_eq!(two(PROVIDED), 0);
+		assert_eq!(two(PROVIDED), 94);
+	}
+
+	#[test]
+	fn two_provided2()
+	{
+		assert_eq!(two(PROVIDED2), 71);
 	}
 }
