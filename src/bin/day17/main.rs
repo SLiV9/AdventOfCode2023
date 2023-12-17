@@ -5,8 +5,8 @@ use aoc2023::run;
 const INPUT: &str = include_str!("input.txt");
 
 const GRID_SIZE: usize = 192;
-
-const MAX_COST: usize = 9;
+const MAX_COST: u16 = 9;
+const BUFFER_SIZE: usize = GRID_SIZE * 50;
 
 pub fn main()
 {
@@ -14,20 +14,20 @@ pub fn main()
 	run!(two(INPUT));
 }
 
-fn one(input: &str) -> usize
+fn one(input: &str) -> u16
 {
 	let mut cost_grid = [[0; GRID_SIZE]; GRID_SIZE];
 	let (num_rows, num_cols) = parse_grid(&mut cost_grid, input);
 
-	find_least_cost::<2, 0>(&cost_grid, num_rows, num_cols)
+	find_least_cost::<0, 2>(&cost_grid, num_rows, num_cols)
 }
 
-fn two(input: &str) -> usize
+fn two(input: &str) -> u16
 {
 	let mut cost_grid = [[0; GRID_SIZE]; GRID_SIZE];
 	let (num_rows, num_cols) = parse_grid(&mut cost_grid, input);
 
-	find_least_cost::<9, 3>(&cost_grid, num_rows, num_cols)
+	find_least_cost::<3, 6>(&cost_grid, num_rows, num_cols)
 }
 
 fn parse_grid(
@@ -112,7 +112,7 @@ enum Direction
 	North,
 }
 
-const DIRECTION_LEN: usize = 4;
+const DIRECTION_LEN: usize = 2;
 
 impl Direction
 {
@@ -155,7 +155,7 @@ impl Explorer
 	{
 		let r = self.at.row as usize;
 		let c = self.at.col as usize;
-		let d = self.facing as usize;
+		let d = (self.facing as usize) % 2;
 		grid[r][c][d]
 	}
 
@@ -167,7 +167,7 @@ impl Explorer
 	{
 		let r = self.at.row as usize;
 		let c = self.at.col as usize;
-		let d = self.facing as usize;
+		let d = (self.facing as usize) % 2;
 		grid[r][c][d] = value;
 	}
 }
@@ -175,17 +175,17 @@ impl Explorer
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 struct Candidate
 {
-	rank: usize,
+	rank: u16,
 	explorer: Explorer,
 }
 
 const MAX_INITIAL_SHORTLIST_LEN: usize = 16;
 
-fn find_least_cost<const MAX_STRAIN: usize, const MIN_STRAIN: usize>(
+fn find_least_cost<const MIN_STRAIN: usize, const MAX_EXTRA_STRAIN: usize>(
 	cost_grid: &[[u8; GRID_SIZE]; GRID_SIZE],
 	num_rows: usize,
 	num_cols: usize,
-) -> usize
+) -> u16
 {
 	let start = Point { row: 0, col: 0 };
 	let target = Point {
@@ -193,13 +193,13 @@ fn find_least_cost<const MAX_STRAIN: usize, const MIN_STRAIN: usize>(
 		col: (num_cols - 1) as u8,
 	};
 	let manhattan_distance = |from: Point, to: Point| {
-		let dr = (to.row as i32 - from.row as i32).abs() as usize;
-		let dc = (to.col as i32 - from.col as i32).abs() as usize;
+		let dr = (to.row as i32 - from.row as i32).abs() as u16;
+		let dc = (to.col as i32 - from.col as i32).abs() as u16;
 		dr + dc
 	};
 	let upper_bound = manhattan_distance(start, target) * MAX_COST;
 	let mut dist = [[[upper_bound; DIRECTION_LEN]; GRID_SIZE]; GRID_SIZE];
-	let mut buffer = [Candidate::default(); GRID_SIZE * MAX_COST * 10];
+	let mut buffer = [Candidate::default(); BUFFER_SIZE];
 	let mut shortlist_start = 0;
 	let mut shortlist_end = 0;
 	let mut shortlist_rank_threshold = 0;
@@ -251,27 +251,33 @@ fn find_least_cost<const MAX_STRAIN: usize, const MIN_STRAIN: usize>(
 			continue;
 		}
 
-		for facing in [curr.facing.turn_left(), curr.facing.turn_right()]
+		'withfacings: for facing in
+			[curr.facing.turn_left(), curr.facing.turn_right()]
 		{
 			let mut next = Explorer {
 				at: curr.at,
 				facing,
 			};
 			let mut cost = current_dist;
-			for strain in 0..=MAX_STRAIN
+			for _ in 0..MIN_STRAIN
 			{
 				let Some(at) = next.at.step(facing, num_rows, num_cols)
 				else
 				{
-					break;
+					continue 'withfacings;
 				};
 				next.at = at;
-				cost += at.get(cost_grid) as usize;
-
-				if strain < MIN_STRAIN
+				cost += at.get(cost_grid) as u16;
+			}
+			for _ in 0..=MAX_EXTRA_STRAIN
+			{
+				let Some(at) = next.at.step(facing, num_rows, num_cols)
+				else
 				{
-					continue;
-				}
+					continue 'withfacings;
+				};
+				next.at = at;
+				cost += at.get(cost_grid) as u16;
 
 				if cost < next.get(&dist)
 				{
@@ -313,7 +319,7 @@ fn find_least_cost<const MAX_STRAIN: usize, const MIN_STRAIN: usize>(
 #[allow(unused)]
 #[cfg(debug_assertions)]
 fn print_dist(
-	grid: &[[[usize; DIRECTION_LEN]; GRID_SIZE]; GRID_SIZE],
+	grid: &[[[u16; DIRECTION_LEN]; GRID_SIZE]; GRID_SIZE],
 	num_rows: usize,
 	num_cols: usize,
 )
@@ -323,10 +329,8 @@ fn print_dist(
 	{
 		for cell in &row[0..num_cols]
 		{
-			print!("E{:04}", cell[0]);
-			print!("S{:04}", cell[1]);
-			print!("W{:04}", cell[2]);
-			print!("N{:04}", cell[3]);
+			print!("H{:04}", cell[0]);
+			print!("V{:04}", cell[1]);
 			print!(" ");
 		}
 		println!();
