@@ -179,7 +179,7 @@ struct Candidate
 	explorer: Explorer,
 }
 
-const MAX_INITIAL_SHORTLIST_LEN: usize = 16;
+const MAX_INITIAL_SHORTLIST_LEN: usize = 1024;
 
 fn find_least_cost<const MIN_STRAIN: usize, const MAX_EXTRA_STRAIN: usize>(
 	cost_grid: &[[u8; GRID_SIZE]; GRID_SIZE],
@@ -219,14 +219,7 @@ fn find_least_cost<const MIN_STRAIN: usize, const MAX_EXTRA_STRAIN: usize>(
 		debug_assert!(shortlist_end <= len);
 		if shortlist_start == shortlist_end
 		{
-			if shortlist_end * 2 < len
-			{
-				buffer.copy_within(shortlist_end..len, 0);
-			}
-			else
-			{
-				buffer[0..len].rotate_left(shortlist_end);
-			}
+			buffer.copy_within(shortlist_end..len, 0);
 			len -= shortlist_end;
 			if len == 0
 			{
@@ -286,16 +279,38 @@ fn find_least_cost<const MIN_STRAIN: usize, const MAX_EXTRA_STRAIN: usize>(
 					let rank = cost;
 					if rank < shortlist_rank_threshold
 					{
-						buffer[len] = buffer[shortlist_end];
-						buffer[shortlist_end] = Candidate {
-							explorer: next,
-							rank,
-						};
-						let i = buffer[shortlist_start..shortlist_end]
-							.partition_point(|&c| c.rank < rank);
-						shortlist_end += 1;
-						buffer[i..shortlist_end].rotate_right(1);
-						len += 1;
+						if shortlist_start > 0
+						{
+							let n = buffer[shortlist_start..shortlist_end]
+								.partition_point(|&c| c.rank < rank);
+							let shortlist_mid = shortlist_start + n;
+							shortlist_start -= 1;
+							buffer[shortlist_start..shortlist_mid]
+								.copy_within(1..(n + 1), 0);
+							buffer[shortlist_mid - 1] = Candidate {
+								explorer: next,
+								rank,
+							};
+						}
+						else
+						{
+							buffer[len] = buffer[shortlist_end];
+							len += 1;
+							let i = buffer[shortlist_start..shortlist_end]
+								.partition_point(|&c| c.rank < rank);
+							let shortlist_mid = shortlist_start + i;
+							let n = shortlist_end - shortlist_mid;
+							shortlist_end += 1;
+							if n > 0
+							{
+								buffer[shortlist_mid..shortlist_end]
+									.copy_within(0..n, 1);
+							}
+							buffer[shortlist_mid] = Candidate {
+								explorer: next,
+								rank,
+							};
+						}
 					}
 					else
 					{
