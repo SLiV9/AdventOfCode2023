@@ -33,3 +33,5 @@ day17 part one: 50.6 ms
 day17 part two: 193.1 ms
 day17 part one: 147.3 ms
 day17 part two: 577.4 ms
+day17 part one: 42.7 ms
+day17 part two: 105.0 ms

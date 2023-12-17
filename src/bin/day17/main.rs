@@ -19,7 +19,7 @@ fn one(input: &str) -> usize
 	let mut cost_grid = [[0; GRID_SIZE]; GRID_SIZE];
 	let (num_rows, num_cols) = parse_grid(&mut cost_grid, input);
 
-	find_least_cost(&cost_grid, num_rows, num_cols, CrucibleModel::Regular)
+	find_least_cost::<2, 0>(&cost_grid, num_rows, num_cols)
 }
 
 fn two(input: &str) -> usize
@@ -27,7 +27,7 @@ fn two(input: &str) -> usize
 	let mut cost_grid = [[0; GRID_SIZE]; GRID_SIZE];
 	let (num_rows, num_cols) = parse_grid(&mut cost_grid, input);
 
-	find_least_cost(&cost_grid, num_rows, num_cols, CrucibleModel::Ultra)
+	find_least_cost::<9, 3>(&cost_grid, num_rows, num_cols)
 }
 
 fn parse_grid(
@@ -172,34 +172,6 @@ impl Explorer
 	}
 }
 
-#[derive(Debug, Clone, Copy)]
-enum CrucibleModel
-{
-	Regular,
-	Ultra,
-}
-
-impl CrucibleModel
-{
-	fn max_strain(self) -> usize
-	{
-		match self
-		{
-			CrucibleModel::Regular => 2,
-			CrucibleModel::Ultra => 9,
-		}
-	}
-
-	fn min_strain(self) -> usize
-	{
-		match self
-		{
-			CrucibleModel::Regular => 0,
-			CrucibleModel::Ultra => 3,
-		}
-	}
-}
-
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 struct Candidate
 {
@@ -209,11 +181,10 @@ struct Candidate
 
 const MAX_INITIAL_SHORTLIST_LEN: usize = 16;
 
-fn find_least_cost(
+fn find_least_cost<const MAX_STRAIN: usize, const MIN_STRAIN: usize>(
 	cost_grid: &[[u8; GRID_SIZE]; GRID_SIZE],
 	num_rows: usize,
 	num_cols: usize,
-	model: CrucibleModel,
 ) -> usize
 {
 	let start = Point { row: 0, col: 0 };
@@ -248,23 +219,37 @@ fn find_least_cost(
 		debug_assert!(shortlist_end <= len);
 		if shortlist_start == shortlist_end
 		{
-			buffer[0..len].rotate_left(shortlist_end);
+			if shortlist_end * 2 < len
+			{
+				buffer.copy_within(shortlist_end..len, 0);
+			}
+			else
+			{
+				buffer[0..len].rotate_left(shortlist_end);
+			}
 			len -= shortlist_end;
 			if len == 0
 			{
 				break;
 			}
-			buffer[0..len].sort_unstable();
 			shortlist_start = 0;
 			shortlist_end = len.min(MAX_INITIAL_SHORTLIST_LEN);
+			buffer[0..len].select_nth_unstable(shortlist_end - 1);
+			buffer[0..shortlist_end].sort_unstable();
 			shortlist_rank_threshold = buffer[shortlist_end - 1].rank;
 		}
 
 		let Candidate {
 			explorer: curr,
-			rank: current_dist,
+			rank,
 		} = buffer[shortlist_start];
 		shortlist_start += 1;
+
+		let current_dist = curr.get(&dist);
+		if rank != current_dist
+		{
+			continue;
+		}
 
 		for facing in [curr.facing.turn_left(), curr.facing.turn_right()]
 		{
@@ -273,7 +258,7 @@ fn find_least_cost(
 				facing,
 			};
 			let mut cost = current_dist;
-			for strain in 0..=model.max_strain()
+			for strain in 0..=MAX_STRAIN
 			{
 				let Some(at) = next.at.step(facing, num_rows, num_cols)
 				else
@@ -283,7 +268,7 @@ fn find_least_cost(
 				next.at = at;
 				cost += at.get(cost_grid) as usize;
 
-				if strain < model.min_strain()
+				if strain < MIN_STRAIN
 				{
 					continue;
 				}
@@ -293,19 +278,27 @@ fn find_least_cost(
 					next.set(&mut dist, cost);
 
 					let rank = cost;
-					buffer[len] = Candidate {
-						explorer: next,
-						rank,
-					};
 					if rank < shortlist_rank_threshold
 					{
-						buffer.swap(shortlist_end, len);
+						buffer[len] = buffer[shortlist_end];
+						buffer[shortlist_end] = Candidate {
+							explorer: next,
+							rank,
+						};
 						let i = buffer[shortlist_start..shortlist_end]
 							.partition_point(|&c| c.rank < rank);
 						shortlist_end += 1;
 						buffer[i..shortlist_end].rotate_right(1);
+						len += 1;
 					}
-					len += 1;
+					else
+					{
+						buffer[len] = Candidate {
+							explorer: next,
+							rank,
+						};
+						len += 1;
+					}
 				}
 			}
 		}
