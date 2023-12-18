@@ -17,12 +17,13 @@ pub fn main()
 fn one(input: &str) -> usize
 {
 	let mut grid = [[0u8; GRID_SIZE]; GRID_SIZE];
-	let mut num_rows = 0;
-	let mut num_cols = 0;
-	let mut digger = Digger {
+	let center = Point {
 		row: GRID_SIZE / 2,
 		col: GRID_SIZE / 2,
 	};
+	let mut digger = center;
+	let mut topleft = center;
+	let mut bottomright = center;
 	for line in input.lines().filter(|x| !x.is_empty())
 	{
 		let instruction = Instruction::from_str(line).unwrap();
@@ -36,49 +37,64 @@ fn one(input: &str) -> usize
 			digger.step(direction);
 			grid[digger.row][digger.col] = 1;
 		}
-		num_rows = num_rows.max(digger.row + 1);
-		num_cols = num_cols.max(digger.col + 1);
+		topleft.row = topleft.row.min(digger.row);
+		topleft.col = topleft.col.min(digger.col);
+		bottomright.row = bottomright.row.max(digger.row);
+		bottomright.col = bottomright.col.max(digger.col);
 	}
-	debug_print_grid(&grid, num_rows, num_cols);
-	for row in &mut grid
+	debug_print_grid(&grid, topleft, bottomright);
+
+	grid[topleft.row - 1].fill(2);
+	grid[bottomright.row + 1].fill(2);
+	for r in topleft.row..=bottomright.row
 	{
-		let mut state = 0;
-		let mut last_wall_col = 0;
-		for c in 0..num_cols
+		grid[r][topleft.col - 1] = 2;
+		grid[r][bottomright.col + 1] = 2;
+	}
+	let mut any_changes = true;
+	while any_changes
+	{
+		any_changes = false;
+		for r in topleft.row..=bottomright.row
 		{
-			if row[c] > 0
+			for c in topleft.col..=bottomright.col
 			{
-				if state == 0
+				if grid[r][c] > 0
 				{
-					state = 1;
-					last_wall_col = c;
+					continue;
 				}
-				else if state == 2
+				if grid[r - 1][c] == 2
+					|| grid[r + 1][c] == 2
+					|| grid[r][c - 1] == 2
+					|| grid[r][c + 1] == 2
 				{
-					for cc in (last_wall_col + 1)..c
-					{
-						row[cc] = 1;
-					}
-					state = 3;
-				}
-			}
-			else
-			{
-				if state == 1
-				{
-					state = 2;
-				}
-				else if state == 3
-				{
-					state = 0;
+					grid[r][c] = 2;
+					any_changes = true;
 				}
 			}
 		}
 	}
-	debug_print_grid(&grid, num_rows, num_cols);
-	grid[0..num_rows]
+
+	// for r in topleft.row..=bottomright.row
+	// {
+	// 	for c in topleft.col..=bottomright.col
+	// 	{
+	// 		if grid[r][c] == 0
+	// 		{
+	// 			grid[r][c] = 1;
+	// 		}
+	// 	}
+	// }
+
+	debug_print_grid(&grid, topleft, bottomright);
+	grid[topleft.row..=bottomright.row]
 		.iter()
-		.map(|row| row[0..num_cols].iter().filter(|&&x| x > 0u8).count())
+		.map(|row| {
+			row[topleft.col..=bottomright.col]
+				.iter()
+				.filter(|&&x| x < 2)
+				.count()
+		})
 		.sum()
 }
 
@@ -110,14 +126,14 @@ struct Instruction
 	color: String,
 }
 
-#[derive(Debug)]
-struct Digger
+#[derive(Debug, Clone, Copy)]
+struct Point
 {
 	row: usize,
 	col: usize,
 }
 
-impl Digger
+impl Point
 {
 	fn step(&mut self, direction: Direction)
 	{
@@ -133,24 +149,23 @@ impl Digger
 
 fn debug_print_grid(
 	grid: &[[u8; GRID_SIZE]; GRID_SIZE],
-	num_rows: usize,
-	num_cols: usize,
+	topleft: Point,
+	bottomright: Point,
 )
 {
 	println!();
 	let mut buffer = String::new();
-	for row in &grid[0..num_rows]
+	for row in &grid[(topleft.row - 1)..(bottomright.row + 2)]
 	{
 		buffer.clear();
-		for cell in &row[0..num_cols]
+		for cell in &row[(topleft.col - 1)..(bottomright.col + 2)]
 		{
-			if *cell > 0
+			match *cell
 			{
-				buffer.push('#');
-			}
-			else
-			{
-				buffer.push('.');
+				0 => buffer.push('.'),
+				1 => buffer.push('#'),
+				2 => buffer.push('~'),
+				_ => buffer.push('?'),
 			}
 		}
 		println!("{buffer}");
