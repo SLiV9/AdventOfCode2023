@@ -10,6 +10,9 @@ const MAX_NUM_NODES: usize = 8 * 1024;
 const ACCEPTANCE_INDEX: usize = MAX_NUM_NODES;
 const REJECTANCE_INDEX: usize = ACCEPTANCE_INDEX + 1;
 
+const MIN_VALUE: u16 = 1;
+const MAX_VALUE: u16 = 4000;
+
 pub fn main()
 {
 	run!(one(INPUT));
@@ -19,36 +22,69 @@ pub fn main()
 fn one(input: &str) -> u32
 {
 	let mut lines = input.lines();
-	let mut names = [""; MAX_NUM_NODES];
+	let mut names = [""; MAX_NUM_NODES / 2];
 	let mut nodes = [Node::default(); MAX_NUM_NODES];
-	let mut len = 0;
+	let mut num_names = 0;
+	load_nodes(&mut nodes, &mut names, &mut num_names, &mut lines);
+	solve_parts(&nodes, lines)
+}
 
-	let insert = |x, xs: &mut [_], n: &mut usize| {
-		let i = *n;
-		xs[i] = x;
-		*n += 1;
-		i
-	};
-	let find_or_insert = |x, xs: &mut [_], n: &mut usize| {
-		if x == "A"
-		{
-			ACCEPTANCE_INDEX
-		}
-		else if x == "R"
-		{
-			REJECTANCE_INDEX
-		}
-		else
-		{
-			match xs.iter().position(|&n| n == x)
-			{
-				Some(i) => i,
-				None => insert(x, xs, n),
-			}
-		}
-	};
+fn two(input: &str) -> u32
+{
+	let lines = input.lines();
+	let mut names = [""; MAX_NUM_NODES / 2];
+	let mut nodes = [Node::default(); MAX_NUM_NODES];
+	let mut num_names = 0;
+	load_nodes(&mut nodes, &mut names, &mut num_names, lines);
+	solve_everything(&nodes, num_names)
+}
 
-	let start = find_or_insert("in", &mut names, &mut len);
+fn insert<'a: 'b, 'b>(
+	name: &'a str,
+	names: &'b mut [&'a str],
+	num_names: &'b mut usize,
+) -> usize
+{
+	let i = *num_names;
+	names[i] = name;
+	*num_names += 1;
+	i
+}
+
+fn find_or_insert<'a: 'b, 'b>(
+	name: &'a str,
+	names: &'b mut [&'a str],
+	num_names: &'b mut usize,
+) -> usize
+{
+	if name == "A"
+	{
+		ACCEPTANCE_INDEX
+	}
+	else if name == "R"
+	{
+		REJECTANCE_INDEX
+	}
+	else
+	{
+		match names[0..*num_names].iter().position(|&n| n == name)
+		{
+			Some(i) => i,
+			None => insert(name, names, num_names),
+		}
+	}
+}
+
+fn load_nodes<'a: 'b, 'b>(
+	nodes: &'b mut [Node; MAX_NUM_NODES],
+	names: &'b mut [&'a str; MAX_NUM_NODES / 2],
+	num_names: &'b mut usize,
+	mut lines: impl Iterator<Item = &'a str>,
+)
+{
+	find_or_insert("in", names, num_names);
+
+	let mut nameless_ix = MAX_NUM_NODES / 2;
 
 	while let Some(line) = lines.next()
 	{
@@ -58,18 +94,20 @@ fn one(input: &str) -> u32
 		}
 		let (name, rest) = line.split_once('{').unwrap();
 		let rest = rest.trim_end_matches('}');
-		let mut i = find_or_insert(name, &mut names, &mut len);
+		let mut i = find_or_insert(name, names, num_names);
 		let (rules, last) = rest.rsplit_once(',').unwrap();
-		let last_ix = find_or_insert(last, &mut names, &mut len);
+		let last_ix = find_or_insert(last, names, num_names);
 		let mut rules = rules.split(',').peekable();
 		while let Some(rule) = rules.next()
 		{
 			let (condition, then_name) = rule.split_once(':').unwrap();
 			let cond = Condition::from_str(condition).unwrap();
-			let then_ix = find_or_insert(then_name, &mut names, &mut len);
+			let then_ix = find_or_insert(then_name, names, num_names);
 			let else_ix = if rules.peek().is_some()
 			{
-				insert("", &mut names, &mut len)
+				let else_ix = nameless_ix;
+				nameless_ix += 1;
+				else_ix
 			}
 			else
 			{
@@ -85,7 +123,13 @@ fn one(input: &str) -> u32
 			i = else_ix;
 		}
 	}
+}
 
+fn solve_parts<'a>(
+	nodes: &[Node; MAX_NUM_NODES],
+	mut lines: impl Iterator<Item = &'a str>,
+) -> u32
+{
 	let mut answer = 0;
 	while let Some(line) = lines.next()
 	{
@@ -96,8 +140,8 @@ fn one(input: &str) -> u32
 		let part = Part::from_str(line).unwrap();
 		let part_as_u64 = part.as_u64();
 
-		let mut i = start;
-		while i < len
+		let mut i = 0;
+		while i < MAX_NUM_NODES
 		{
 			i = nodes[i].step(part_as_u64);
 		}
@@ -109,9 +153,9 @@ fn one(input: &str) -> u32
 	answer
 }
 
-fn two(input: &str) -> u32
+fn solve_everything(nodes: &[Node; MAX_NUM_NODES], len: usize) -> u32
 {
-	input.len() as u32 * 0
+	0
 }
 
 #[derive(Debug, Clone, Copy, Default)]

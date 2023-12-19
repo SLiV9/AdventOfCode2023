@@ -41,3 +41,4 @@ day17 part one: 6.7 ms
 day17 part two: 10.1 ms
 day18 part one: 32.5 ms
 day19 part one: 2.8 ms
+day19 part one: 1.4 ms
