@@ -6,7 +6,8 @@ use std::str::FromStr;
 
 const INPUT: &str = include_str!("input.txt");
 
-const MAX_NUM_NODES: usize = 8 * 1024;
+const MAX_NUM_NODES: usize = 2 * 1024;
+const INNER_INDEX: usize = MAX_NUM_NODES / 2;
 const ACCEPTANCE_INDEX: usize = MAX_NUM_NODES;
 const REJECTANCE_INDEX: usize = ACCEPTANCE_INDEX + 1;
 
@@ -24,19 +25,17 @@ fn one(input: &str) -> u32
 	let mut lines = input.lines();
 	let mut names = [""; MAX_NUM_NODES / 2];
 	let mut nodes = [Node::default(); MAX_NUM_NODES];
-	let mut num_names = 0;
-	load_nodes(&mut nodes, &mut names, &mut num_names, &mut lines);
+	load_nodes(&mut nodes, &mut names, &mut lines);
 	solve_parts(&nodes, lines)
 }
 
-fn two(input: &str) -> u32
+fn two(input: &str) -> usize
 {
 	let lines = input.lines();
 	let mut names = [""; MAX_NUM_NODES / 2];
 	let mut nodes = [Node::default(); MAX_NUM_NODES];
-	let mut num_names = 0;
-	load_nodes(&mut nodes, &mut names, &mut num_names, lines);
-	solve_everything(&nodes, num_names)
+	load_nodes(&mut nodes, &mut names, lines);
+	solve_everything(&nodes)
 }
 
 fn insert<'a: 'b, 'b>(
@@ -78,13 +77,13 @@ fn find_or_insert<'a: 'b, 'b>(
 fn load_nodes<'a: 'b, 'b>(
 	nodes: &'b mut [Node; MAX_NUM_NODES],
 	names: &'b mut [&'a str; MAX_NUM_NODES / 2],
-	num_names: &'b mut usize,
 	mut lines: impl Iterator<Item = &'a str>,
 )
 {
-	find_or_insert("in", names, num_names);
+	let mut num_names = 0;
+	let mut inner_ix = INNER_INDEX;
 
-	let mut nameless_ix = MAX_NUM_NODES / 2;
+	find_or_insert("in", names, &mut num_names);
 
 	while let Some(line) = lines.next()
 	{
@@ -94,19 +93,19 @@ fn load_nodes<'a: 'b, 'b>(
 		}
 		let (name, rest) = line.split_once('{').unwrap();
 		let rest = rest.trim_end_matches('}');
-		let mut i = find_or_insert(name, names, num_names);
+		let mut i = find_or_insert(name, names, &mut num_names);
 		let (rules, last) = rest.rsplit_once(',').unwrap();
-		let last_ix = find_or_insert(last, names, num_names);
+		let last_ix = find_or_insert(last, names, &mut num_names);
 		let mut rules = rules.split(',').peekable();
 		while let Some(rule) = rules.next()
 		{
 			let (condition, then_name) = rule.split_once(':').unwrap();
 			let cond = Condition::from_str(condition).unwrap();
-			let then_ix = find_or_insert(then_name, names, num_names);
+			let then_ix = find_or_insert(then_name, names, &mut num_names);
 			let else_ix = if rules.peek().is_some()
 			{
-				let else_ix = nameless_ix;
-				nameless_ix += 1;
+				let else_ix = inner_ix;
+				inner_ix += 1;
 				else_ix
 			}
 			else
@@ -122,6 +121,51 @@ fn load_nodes<'a: 'b, 'b>(
 			};
 			i = else_ix;
 		}
+	}
+
+	let num_inner = inner_ix - INNER_INDEX;
+
+	if cfg!(debug_assertions)
+	{
+		dbg!(num_names);
+		dbg!(num_inner);
+	}
+
+	let mut num_nodes = num_names + num_inner;
+	let mut selves = [0; MAX_NUM_NODES + 2];
+	for i in (0..num_names).chain(INNER_INDEX..inner_ix)
+	{
+		selves[i] = i as u16;
+	}
+	selves[ACCEPTANCE_INDEX] = ACCEPTANCE_INDEX as u16;
+	selves[REJECTANCE_INDEX] = REJECTANCE_INDEX as u16;
+
+	let mut any_change = true;
+	while any_change
+	{
+		any_change = false;
+
+		for i in (0..num_names).chain(INNER_INDEX..inner_ix).rev()
+		{
+			if selves[i] as usize != i
+			{
+				continue;
+			}
+			let node = &mut nodes[i];
+			node.less = selves[node.less as usize];
+			node.more = selves[node.more as usize];
+			if node.less == node.more
+			{
+				selves[i] = node.less;
+				num_nodes -= 1;
+				any_change = true;
+			}
+		}
+	}
+
+	if cfg!(debug_assertions)
+	{
+		dbg!(num_nodes);
 	}
 }
 
@@ -153,7 +197,7 @@ fn solve_parts<'a>(
 	answer
 }
 
-fn solve_everything(nodes: &[Node; MAX_NUM_NODES], len: usize) -> u32
+fn solve_everything(nodes: &[Node; MAX_NUM_NODES]) -> usize
 {
 	0
 }
@@ -305,6 +349,6 @@ mod tests
 	#[test]
 	fn two_provided()
 	{
-		assert_eq!(two(PROVIDED), 0);
+		assert_eq!(two(PROVIDED), 167409079868000);
 	}
 }
