@@ -41,7 +41,25 @@ fn one(input: &str) -> usize
 
 fn two(input: &str) -> usize
 {
-	input.len() * 0
+	let mut nodes: [Node; MAX_NUM_NODES] =
+		std::array::from_fn(|_i| Node::default());
+	let mut names = [""; MAX_NUM_NODES];
+	load_nodes(&mut nodes, &mut names, input);
+	let mut memory = 0;
+	let rx_ix = names.iter().position(|&name| name == "rx").unwrap();
+	let rx_mask = 1 << nodes[rx_ix].memory_shr;
+	dbg!(&nodes[rx_ix]);
+	let mut num_presses = 0;
+	loop
+	{
+		num_presses += 1;
+		press_button(&nodes, &mut memory);
+		if (memory & rx_mask) != 0
+		{
+			dbg!(memory, rx_mask);
+			return num_presses;
+		}
+	}
 }
 
 fn insert<'a: 'b, 'b>(
@@ -81,9 +99,11 @@ fn load_nodes<'a: 'b, 'b>(
 
 	find_or_insert("button", names, &mut num_names);
 	find_or_insert("broadcaster", names, &mut num_names);
+	find_or_insert("rx", names, &mut num_names);
 	nodes[0].kind = NodeKind::Button;
 	nodes[0].successors.push(1);
 	nodes[1].predecessors.push(0);
+	nodes[2].kind = NodeKind::Output;
 
 	while let Some(line) = lines.next()
 	{
@@ -149,11 +169,10 @@ fn load_nodes<'a: 'b, 'b>(
 	if cfg!(debug_assertions)
 	{
 		dbg!(num_names);
-		// for (name, node) in
-		// 	names[0..num_names].iter().zip(nodes[0..num_names].iter())
-		// {
-		// 	dbg!(name, node);
-		// }
+		for (name, node) in names[0..10].iter().zip(nodes[0..num_names].iter())
+		{
+			dbg!(name, node);
+		}
 		dbg!(memory_width);
 	}
 }
@@ -271,11 +290,5 @@ mod tests
 	fn one_provided2()
 	{
 		assert_eq!(one(PROVIDED2), 11687500);
-	}
-
-	#[test]
-	fn two_provided()
-	{
-		assert_eq!(two(PROVIDED1), 0);
 	}
 }
