@@ -22,7 +22,7 @@ fn one(input: &str) -> usize
 		std::array::from_fn(|_i| Node::default());
 	let mut names = [""; MAX_NUM_NODES];
 	load_nodes(&mut nodes, &mut names, input);
-	let mut memory = 0;
+	let mut memory = 1;
 	let mut num_lo = 0;
 	let mut num_hi = 0;
 	for _ in 0..1000
@@ -33,7 +33,7 @@ fn one(input: &str) -> usize
 
 		if cfg!(debug_assertions)
 		{
-			// dbg!([l, h], memory, format!("{memory:032b}"));
+			// dbg!(format!("{memory:0128b}"));
 		}
 	}
 	num_lo * num_hi
@@ -45,18 +45,20 @@ fn two(input: &str) -> usize
 		std::array::from_fn(|_i| Node::default());
 	let mut names = [""; MAX_NUM_NODES];
 	load_nodes(&mut nodes, &mut names, input);
-	let mut memory = 0;
-	let rx_ix = names.iter().position(|&name| name == "rx").unwrap();
-	let rx_mask = 1 << nodes[rx_ix].memory_shr;
-	dbg!(&nodes[rx_ix]);
+	let mut memory = 1;
 	let mut num_presses = 0;
 	loop
 	{
 		num_presses += 1;
 		press_button(&nodes, &mut memory);
-		if (memory & rx_mask) != 0
+
+		if cfg!(debug_assertions)
 		{
-			dbg!(memory, rx_mask);
+			dbg!(format!("{memory:0128b}"));
+		}
+
+		if (memory & 1) == 0
+		{
 			return num_presses;
 		}
 	}
@@ -97,13 +99,13 @@ fn load_nodes<'a: 'b, 'b>(
 
 	let mut num_names = 0;
 
-	find_or_insert("button", names, &mut num_names);
-	find_or_insert("broadcaster", names, &mut num_names);
-	find_or_insert("rx", names, &mut num_names);
+	insert("button", names, &mut num_names);
+	insert("rx", names, &mut num_names);
+	insert("broadcaster", names, &mut num_names);
 	nodes[0].kind = NodeKind::Button;
-	nodes[0].successors.push(1);
-	nodes[1].predecessors.push(0);
-	nodes[2].kind = NodeKind::Output;
+	nodes[0].successors.push(2);
+	nodes[1].kind = NodeKind::Output;
+	nodes[2].predecessors.push(0);
 
 	while let Some(line) = lines.next()
 	{
@@ -183,17 +185,21 @@ fn press_button(nodes: &[Node; MAX_NUM_NODES], memory: &mut u128)
 	-> [usize; 2]
 {
 	let mut signals: RingBuffer<[u16; MAX_NUM_NODES]> = RingBuffer::default();
-	signals.push(1);
+	signals.push(2);
 	let mut nums_lo_hi = [1, 0];
 
 	while let Some(signal) = signals.pop_head()
 	{
+		if (*memory & 1) == 0
+		{
+			break;
+		}
 		let input = (signal >> 15) as u8;
 		let source = ((signal >> 8) & SIGNAL_MASK) as u8;
 		let i = (signal & SIGNAL_MASK) as usize;
 		let node = &nodes[i];
-		// dbg!(signal, input, source, i, node);
-		let Some(output) = node.process(input, source, memory)
+		let output = node.process(input, source, memory);
+		let Some(output) = output
 		else
 		{
 			continue;
