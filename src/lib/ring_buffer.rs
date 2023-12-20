@@ -1,16 +1,30 @@
 /**/
 
-#[derive(Debug, Default)]
-pub struct RingBuffer<A: smallvec::Array + Default>
+#[derive(Debug)]
+pub struct RingBuffer<A: smallvec::Array>
 {
 	buffer: A,
 	head: usize,
 	tail: usize,
 }
 
+impl<T: Copy + Default, const N: usize> Default for RingBuffer<[T; N]>
+where
+	[T; N]: smallvec::Array,
+{
+	fn default() -> Self
+	{
+		Self {
+			buffer: [T::default(); N],
+			head: usize::default(),
+			tail: usize::default(),
+		}
+	}
+}
+
 impl<T: Copy + Default, const N: usize> RingBuffer<[T; N]>
 where
-	[T; N]: smallvec::Array + Default,
+	[T; N]: smallvec::Array,
 {
 	pub fn push(&mut self, x: T)
 	{
@@ -35,6 +49,20 @@ where
 	{
 		debug_assert_ne!(self.head, self.tail);
 		self.head = (self.head + 1) % N;
+	}
+
+	pub fn pop_head(&mut self) -> Option<T>
+	{
+		if self.head != self.tail
+		{
+			let value = self.buffer[self.head];
+			self.drop_head();
+			Some(value)
+		}
+		else
+		{
+			None
+		}
 	}
 
 	pub fn len(&self) -> usize
