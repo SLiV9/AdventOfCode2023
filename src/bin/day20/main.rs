@@ -45,23 +45,60 @@ fn two(input: &str) -> usize
 		std::array::from_fn(|_i| Node::default());
 	let mut names = [""; MAX_NUM_NODES];
 	load_nodes(&mut nodes, &mut names, input);
+
+	println!("### graphviz dot");
+	println!("digraph {{");
+	for i in 0..MAX_NUM_NODES
+	{
+		if names[i].is_empty()
+		{
+			break;
+		}
+		match nodes[i].kind
+		{
+			NodeKind::FlipFlop => println!("{} [color=blue]", names[i]),
+			NodeKind::Conjunction => println!("{} [color=red]", names[i]),
+			_ => (),
+		}
+		print!("{}", names[i]);
+		print!(" -> {{");
+		for j in &nodes[i].successors
+		{
+			print!(" {}", names[*j as usize]);
+		}
+		print!(" }}");
+		match nodes[i].kind
+		{
+			NodeKind::FlipFlop => println!(" [color=blue]"),
+			NodeKind::Conjunction => println!(" [color=red]"),
+			_ => println!(),
+		}
+	}
+	println!("}}");
+	println!("### end");
+
+	let rx_ix = names.iter().position(|&name| name == "rx").unwrap();
+	let pred_ix = nodes[rx_ix as usize].predecessors[0];
+	for i in &nodes[pred_ix as usize].predecessors
+	{
+		nodes[*i as usize].kind = NodeKind::Ticker;
+	}
+
 	let mut memory = 1;
 	let mut num_presses = 0;
-	loop
+	for _ in 0..20000
 	{
 		num_presses += 1;
+		dbg!(num_presses);
 		press_button(&nodes, &mut memory);
 
 		if cfg!(debug_assertions)
 		{
-			dbg!(format!("{memory:0128b}"));
-		}
-
-		if (memory & 1) == 0
-		{
-			return num_presses;
+			// dbg!(format!("{memory:0128b}"));
 		}
 	}
+
+	0
 }
 
 fn insert<'a: 'b, 'b>(
@@ -100,12 +137,10 @@ fn load_nodes<'a: 'b, 'b>(
 	let mut num_names = 0;
 
 	insert("button", names, &mut num_names);
-	insert("rx", names, &mut num_names);
 	insert("broadcaster", names, &mut num_names);
 	nodes[0].kind = NodeKind::Button;
-	nodes[0].successors.push(2);
-	nodes[1].kind = NodeKind::Output;
-	nodes[2].predecessors.push(0);
+	nodes[0].successors.push(1);
+	nodes[1].predecessors.push(0);
 
 	while let Some(line) = lines.next()
 	{
@@ -156,6 +191,10 @@ fn load_nodes<'a: 'b, 'b>(
 			{
 				memory_width += 1;
 			}
+			NodeKind::Ticker =>
+			{
+				memory_width += 1;
+			}
 			NodeKind::FlipFlop =>
 			{
 				memory_width += 1;
@@ -185,15 +224,11 @@ fn press_button(nodes: &[Node; MAX_NUM_NODES], memory: &mut u128)
 	-> [usize; 2]
 {
 	let mut signals: RingBuffer<[u16; MAX_NUM_NODES]> = RingBuffer::default();
-	signals.push(2);
+	signals.push(1);
 	let mut nums_lo_hi = [1, 0];
 
 	while let Some(signal) = signals.pop_head()
 	{
-		if (*memory & 1) == 0
-		{
-			break;
-		}
 		let input = (signal >> 15) as u8;
 		let source = ((signal >> 8) & SIGNAL_MASK) as u8;
 		let i = (signal & SIGNAL_MASK) as usize;
@@ -226,6 +261,7 @@ enum NodeKind
 	FlipFlop,
 	Conjunction,
 	Output,
+	Ticker,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -249,6 +285,17 @@ impl Node
 			{
 				*memory ^= 1 << self.memory_shr;
 				let memory_bit = (*memory >> self.memory_shr) & 1;
+				Some(memory_bit as u8)
+			}
+			NodeKind::Ticker if input > 0 => None,
+			NodeKind::Ticker =>
+			{
+				*memory ^= 1 << self.memory_shr;
+				let memory_bit = (*memory >> self.memory_shr) & 1;
+				if memory_bit > 0
+				{
+					dbg!(self.memory_shr);
+				}
 				Some(memory_bit as u8)
 			}
 			NodeKind::Conjunction =>
