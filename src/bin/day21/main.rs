@@ -21,7 +21,7 @@ fn one(input: &str) -> usize
 
 fn two(input: &str) -> usize
 {
-	input.len() * 0
+	solve_one(input, 26501365)
 }
 
 fn solve_one(input: &str, num_steps: usize) -> usize
@@ -91,11 +91,12 @@ fn count_accessible(
 
 	let mut old = 0;
 	let mut new = 1;
-	for _ in 0..num_steps
+	for i in 0..num_steps
 	{
 		if cfg!(debug_assertions)
 		{
-			debug_print_grid(walls, &ghosts[old]);
+			dbg!(i);
+			debug_print_grid(walls, &ghosts[old], &ghosts[new]);
 		}
 
 		ghosts[new] = [[0u64; NUM_CHUNKS]; GRID_SIZE];
@@ -141,6 +142,7 @@ fn count_accessible(
 fn debug_print_grid(
 	walls: &[[u64; NUM_CHUNKS]; GRID_SIZE],
 	ghosts: &[[u64; NUM_CHUNKS]; GRID_SIZE],
+	lingers: &[[u64; NUM_CHUNKS]; GRID_SIZE],
 )
 {
 	println!();
@@ -156,6 +158,7 @@ fn debug_print_grid(
 				let is_ghost = ghosts[r][i] & (1 << j) != 0;
 				let symbol = match (is_wall, is_ghost)
 				{
+					(false, false) if lingers[r][i] & (1 << j) != 0 => 'o',
 					(false, false) => '.',
 					(false, true) => 'O',
 					(true, false) => '#',
@@ -186,6 +189,30 @@ mod tests
 	#[test]
 	fn two_provided()
 	{
-		assert_eq!(two(PROVIDED), 0);
+		assert_eq!(solve_one(PROVIDED, 6), 16);
+		assert_eq!(solve_one(PROVIDED, 10), 50);
+		assert_eq!(solve_one(PROVIDED, 50), 1594);
+		assert_eq!(solve_one(PROVIDED, 100), 6536);
+		assert_eq!(solve_one(PROVIDED, 500), 167004);
+		assert_eq!(solve_one(PROVIDED, 1000), 668697);
+		assert_eq!(solve_one(PROVIDED, 5000), 16733044);
 	}
 }
+
+//
+// The normal garden fills up after a certain number of iterations, and then oscillates between "even" and "odd"
+// squares being reachable. Once I reach the same number of reachables twice, I can stop running that plot and
+// just calculate whether the final state is even or odd.
+// If I make a 5x5 grid of plots, I can update the plots one at a time (see below for 3x3) because each plot only
+// inherits from two parents and never contributes back upstream (because there are no walls on the edges).
+//
+//  5 < 1 > 6
+//  ^   ^   ^
+//  2 < S > 3
+//  v   v   v
+//  7 < 4 > 8
+//
+// Hopefully the center 3x3 of plots reach oscillation before the outer ring of cells of the 5x5 is breached,
+// so that I can collapse it into itself. Hmm but I have 16 plots in the outer ring and 8 in the middle ring.
+// Maybe I should just start outputting an 11x11 of plots of the original in order to visually see the repetition.
+//
