@@ -46,15 +46,15 @@ fn load_walls(
 		for (i, chunk_xs) in line.as_bytes().chunks(CHUNK_SIZE).enumerate()
 		{
 			let mut chunk = 0u64;
-			for (c, x) in chunk_xs.iter().enumerate()
+			for (d, x) in chunk_xs.iter().enumerate()
 			{
 				match *x
 				{
-					b'#' => chunk |= 1 << c,
+					b'#' => chunk |= 1 << d,
 					b'S' =>
 					{
 						starting_row = r;
-						starting_col = c;
+						starting_col = i * CHUNK_SIZE + d;
 					}
 					b'.' => (),
 					_ => unreachable!(),
@@ -82,6 +82,10 @@ fn count_accessible(
 	num_steps: usize,
 ) -> usize
 {
+	dbg!(starting_row);
+	dbg!(starting_col);
+	dbg!(num_steps);
+
 	let mut ghosts = [[[0u64; NUM_CHUNKS]; GRID_SIZE]; 2];
 	set_bit(&mut ghosts[0], starting_row, starting_col);
 
@@ -141,12 +145,12 @@ fn debug_print_grid(
 {
 	println!();
 	let mut buffer = String::new();
-	for r in 0..16
+	for r in 0..GRID_SIZE
 	{
 		buffer.clear();
-		for i in 0..1
+		for i in 0..NUM_CHUNKS
 		{
-			for j in 0..16
+			for j in 0..CHUNK_SIZE
 			{
 				let is_wall = walls[r][i] & (1 << j) != 0;
 				let is_ghost = ghosts[r][i] & (1 << j) != 0;
