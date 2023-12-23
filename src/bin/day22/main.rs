@@ -41,7 +41,7 @@ struct Point
 fn do_ranges_intersect(a0: u16, a1: u16, b0: u16, b1: u16) -> bool
 {
 	(a0..=a1).contains(&b0)
-		|| (a0..=b1).contains(&b1)
+		|| (a0..=a1).contains(&b1)
 		|| (b0..=b1).contains(&a0)
 		|| (b0..=b1).contains(&a1)
 }
@@ -123,29 +123,28 @@ fn count_candidates(bricks: &[Brick]) -> usize
 
 	while mid < len
 	{
+		floor = bricks[mid].start.z;
+
 		debug_assert!(head < mid);
 		debug_assert!(mid <= head + 128);
 		only_supported_by = [usize::MAX; 128];
-		while pillar_indices
-			.head()
-			.map_or(false, |i| bricks[*i].end.z < floor)
+		while let Some(pillar) =
+			pillar_indices.remove_where(|i| bricks[*i].end.z + 1 < floor)
 		{
 			if cfg!(debug_assertions)
 			{
-				dbg!("candidate", pillar_indices.head().unwrap());
+				dbg!("candidate", pillar);
 			}
 			num_candidates += 1;
-			pillar_indices.drop_head();
 		}
-
-		floor = bricks[mid].start.z;
 
 		tail = mid;
 		debug_assert!(tail <= mid + 128);
 		while tail < len && bricks[tail].start.z == floor
 		{
-			let mut supporters =
-				(head..mid).filter(|&i| bricks[tail].overlaps(&bricks[i]));
+			let mut supporters = (head..mid)
+				.filter(|&i| bricks[i].end.z + 1 == floor)
+				.filter(|&i| bricks[tail].overlaps(&bricks[i]));
 			let main_supporter = supporters.next();
 			let pillar = pillar_indices
 				.remove_where(|&i| bricks[tail].overlaps(&bricks[i]));
@@ -161,18 +160,7 @@ fn count_candidates(bricks: &[Brick]) -> usize
 				}
 				(Some(support), None) =>
 				{
-					dbg!(tail, support);
-					if let Some(other_support) = supporters.next()
-					{
-						debug_assert!(
-							bricks[tail].overlaps(&bricks[other_support])
-						);
-						debug_assert!(
-							bricks[other_support].overlaps(&bricks[tail])
-						);
-						dbg!(other_support);
-					}
-					else
+					if supporters.next().is_none()
 					{
 						only_supported_by[tail - mid] = support;
 					}
@@ -183,13 +171,12 @@ fn count_candidates(bricks: &[Brick]) -> usize
 			tail += 1;
 		}
 
-		dbg!(head, mid, tail, only_supported_by);
+		// dbg!(head, mid, tail, only_supported_by);
 
 		for i in head..mid
 		{
 			let responsibility =
 				only_supported_by.iter().filter(|&&j| j == i).count();
-			dbg!(i, responsibility);
 			if responsibility == 0
 			{
 				if bricks[i].is_pillar()
