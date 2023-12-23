@@ -81,7 +81,7 @@ impl Brick
 		let floor = settled_bricks
 			.iter()
 			.rev()
-			.take_while(|other| other.end.z < self.start.z)
+			.filter(|other| other.end.z < self.start.z)
 			.find(|other| self.overlaps(other))
 			.map_or(0, |other| other.end.z);
 		let dz = self.start.z - floor - 1;
@@ -103,6 +103,11 @@ fn count_candidates(bricks: &[Brick]) -> usize
 {
 	let len = bricks.len();
 
+	if cfg!(debug_assertions)
+	{
+		dbg!(&bricks);
+	}
+
 	let mut num_candidates = 0;
 	let mut only_supported_by: [usize; 128];
 	let mut pillar_indices: RingBuffer<[usize; 32]> = RingBuffer::default();
@@ -120,14 +125,14 @@ fn count_candidates(bricks: &[Brick]) -> usize
 	{
 		debug_assert!(head < mid);
 		debug_assert!(mid <= head + 128);
-		only_supported_by = [0; 128];
+		only_supported_by = [usize::MAX; 128];
 		while pillar_indices
 			.head()
 			.map_or(false, |i| bricks[*i].end.z < floor)
 		{
 			if cfg!(debug_assertions)
 			{
-				dbg!(pillar_indices.head().unwrap());
+				dbg!("candidate", pillar_indices.head().unwrap());
 			}
 			num_candidates += 1;
 			pillar_indices.drop_head();
@@ -150,13 +155,24 @@ fn count_candidates(bricks: &[Brick]) -> usize
 				{
 					if cfg!(debug_assertions)
 					{
-						dbg!(pillar);
+						dbg!("candidate", pillar);
 					}
 					num_candidates += 1;
 				}
 				(Some(support), None) =>
 				{
-					if supporters.next().is_none()
+					dbg!(tail, support);
+					if let Some(other_support) = supporters.next()
+					{
+						debug_assert!(
+							bricks[tail].overlaps(&bricks[other_support])
+						);
+						debug_assert!(
+							bricks[other_support].overlaps(&bricks[tail])
+						);
+						dbg!(other_support);
+					}
+					else
 					{
 						only_supported_by[tail - mid] = support;
 					}
@@ -167,10 +183,13 @@ fn count_candidates(bricks: &[Brick]) -> usize
 			tail += 1;
 		}
 
+		dbg!(head, mid, tail, only_supported_by);
+
 		for i in head..mid
 		{
 			let responsibility =
 				only_supported_by.iter().filter(|&&j| j == i).count();
+			dbg!(i, responsibility);
 			if responsibility == 0
 			{
 				if bricks[i].is_pillar()
@@ -181,7 +200,7 @@ fn count_candidates(bricks: &[Brick]) -> usize
 				{
 					if cfg!(debug_assertions)
 					{
-						dbg!(i);
+						dbg!("candidate", i);
 					}
 					num_candidates += 1;
 				}
@@ -222,6 +241,44 @@ mod tests
 		const TOWER: &str =
 			"2,2,2~2,2,5\n1,2,10~3,2,10\n1,1,20~1,3,20\n3,1,30~3,3,30";
 		assert_eq!(one(TOWER), 2);
+	}
+
+	#[test]
+	fn one_reddit_ric2b()
+	{
+		const RIC2B: &str =
+			"0,0,1~0,1,1\n1,1,1~1,1,1\n0,0,2~0,0,2\n0,1,2~1,1,2";
+		assert_eq!(one(RIC2B), 3);
+	}
+
+	#[test]
+	fn one_reddit_kullu00()
+	{
+		const KULLU00: &str =
+			"0,0,1~1,0,1\n0,1,1~0,1,2\n0,0,5~0,0,5\n0,0,4~0,1,4";
+		assert_eq!(one(KULLU00), 2);
+	}
+
+	#[test]
+	fn one_reddit_barracuda()
+	{
+		const BARRACUDA: &str =
+			"0,0,1~0,0,2\n1,0,1~2,0,1\n1,0,2~1,0,2\n0,0,3~1,0,3\n";
+		assert_eq!(one(BARRACUDA), 3);
+	}
+
+	#[test]
+	fn test_overlap()
+	{
+		let a = Brick::from_str("0,0,1~0,1,1").unwrap();
+		let b = Brick::from_str("1,1,1~1,1,1").unwrap();
+		let c = Brick::from_str("0,0,2~0,0,2").unwrap();
+		assert!(!a.overlaps(&b));
+		assert!(!b.overlaps(&a));
+		assert!(a.overlaps(&c));
+		assert!(c.overlaps(&a));
+		assert!(!b.overlaps(&c));
+		assert!(!c.overlaps(&b));
 	}
 
 	#[test]
