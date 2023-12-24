@@ -82,9 +82,9 @@ impl Brick
 		let floor = settled_bricks
 			.iter()
 			.rev()
-			.filter(|other| other.end.z < self.start.z)
 			.find(|other| self.overlaps(other))
-			.map_or(0, |other| other.end.z);
+			.map(|other| other.end.z)
+			.unwrap_or(0);
 		let dz = self.start.z - floor - 1;
 		self.start.z -= dz;
 		self.end.z -= dz;
@@ -93,6 +93,11 @@ impl Brick
 
 fn drop_bricks(bricks: &mut [Brick])
 {
+	if cfg!(debug_assertions)
+	{
+		dbg!(&bricks);
+	}
+
 	for i in 0..bricks.len()
 	{
 		let (settled, floating) = bricks.split_at_mut(i);
@@ -285,7 +290,15 @@ mod tests
 		const EXILE: &str = "1,0,1~1,2,1\n0,0,2~2,0,2\n0,2,3~2,2,3\n0,0,4~0,2,\
 		                     4\n2,0,5~2,2,5\n0,1,6~2,1,6\n1,1,8~1,1,9\n0,1,\
 		                     3~0,1,3";
-		assert_eq!(one(EXILE), 0);
+		assert_eq!(one(EXILE), 6);
+	}
+
+	#[test]
+	fn one_rev_find()
+	{
+		const REV: &str = "0,0,100~9,0,100\n1,0,10~1,0,11\n2,0,20~2,0,22\n3,0,\
+		                   30~3,0,30\n0,1,150~0,1,153\n0,0,500~0,2,500";
+		assert_eq!(one(REV), 5);
 	}
 
 	#[test]
