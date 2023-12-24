@@ -81,9 +81,9 @@ impl Brick
 	{
 		let floor = settled_bricks
 			.iter()
-			.rev()
-			.find(|other| self.overlaps(other))
+			.filter(|other| self.overlaps(other))
 			.map(|other| other.end.z)
+			.max()
 			.unwrap_or(0);
 		let dz = self.start.z - floor - 1;
 		self.start.z -= dz;
