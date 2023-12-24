@@ -21,6 +21,7 @@ fn one(input: &str) -> usize
 		.collect();
 	bricks.sort_unstable();
 	drop_bricks(&mut bricks);
+	bricks.sort_unstable();
 	count_candidates(&bricks)
 }
 
@@ -202,8 +203,9 @@ fn count_candidates(bricks: &[Brick]) -> usize
 	if cfg!(debug_assertions)
 	{
 		dbg!(num_on_top);
+		dbg!(pillar_indices.len());
 	}
-	num_candidates += num_on_top;
+	num_candidates += num_on_top + pillar_indices.len();
 
 	num_candidates
 }
@@ -250,8 +252,40 @@ mod tests
 	fn one_reddit_barracuda()
 	{
 		const BARRACUDA: &str =
-			"0,0,1~0,0,2\n1,0,1~2,0,1\n1,0,2~1,0,2\n0,0,3~1,0,3\n";
+			"0,0,1~0,0,2\n1,0,1~2,0,1\n1,0,2~1,0,2\n0,0,3~1,0,3";
 		assert_eq!(one(BARRACUDA), 3);
+	}
+
+	#[test]
+	fn one_reddit_falling()
+	{
+		const FALLING: &str = "2,8,48~2,8,49\n1,8,2~3,8,2";
+		assert_eq!(one(FALLING), 1);
+	}
+
+	#[test]
+	fn one_reddit_cruficer()
+	{
+		const CRUCIFER: &str =
+			"0,0,2~0,0,4\n1,0,3~2,0,3\n1,0,4~1,0,5\n0,0,6~1,0,6";
+		assert_eq!(one(CRUCIFER), 3);
+	}
+
+	#[test]
+	fn one_reddit_lefty()
+	{
+		const LEFTY: &str =
+			"0,0,1~0,5,1\n0,6,1~0,9,1\n0,0,2~0,0,2\n0,3,2~0,8,2";
+		assert_eq!(one(LEFTY), 3);
+	}
+
+	#[test]
+	fn one_reddit_exile()
+	{
+		const EXILE: &str = "1,0,1~1,2,1\n0,0,2~2,0,2\n0,2,3~2,2,3\n0,0,4~0,2,\
+		                     4\n2,0,5~2,2,5\n0,1,6~2,1,6\n1,1,8~1,1,9\n0,1,\
+		                     3~0,1,3";
+		assert_eq!(one(EXILE), 0);
 	}
 
 	#[test]

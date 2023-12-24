@@ -47,4 +47,7 @@ day20 part one: 0.3 ms
 day20 part two: 34.3 ms
 day21 part one: 0.1 ms
 day22 part one: 1.9 ms
+day22 part one: 2.0 ms
+day22 part two: 0.0 ms
+day22 part one: 2.1 ms
 day22 part two: 0.0 ms
