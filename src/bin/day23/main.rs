@@ -26,12 +26,16 @@ fn one(input: &str) -> usize
 	debug_print_grid(&grid, num_rows, num_cols);
 	debug_print_graph(&graph);
 
-	length_of_longest_route(&graph)
+	length_of_longest_route_part_one(&graph)
 }
 
 fn two(input: &str) -> usize
 {
-	input.len() * 0
+	let mut grid = [[0; GRID_SIZE]; GRID_SIZE];
+	let (num_rows, num_cols) = parse_grid(&mut grid, input);
+	let mut graph = Graph::default();
+	graph_grid(&mut grid, &mut graph, num_rows, num_cols);
+	length_of_longest_route_part_two(&graph)
 }
 
 fn parse_grid(
@@ -317,7 +321,7 @@ fn debug_print_graph(graph: &Graph)
 	println!();
 }
 
-fn length_of_longest_route(graph: &Graph) -> usize
+fn length_of_longest_route_part_one(graph: &Graph) -> usize
 {
 	let n = graph.vertices.len();
 	let mut grid = [[0; MAX_NUM_VERTICES]; MAX_NUM_VERTICES];
@@ -391,6 +395,70 @@ fn debug_print_max_walk_grid(
 	println!();
 }
 
+#[derive(Debug, Clone, Default)]
+struct Route
+{
+	vertices: SmallVec<[u8; MAX_NUM_VERTICES]>,
+	length: usize,
+}
+
+fn length_of_longest_route_part_two(graph: &Graph) -> usize
+{
+	let n = graph.vertices.len();
+	let finish = (n - 1) as u8;
+	let mut answer = 0;
+	let mut stack: SmallVec<[Route; 1024]> = SmallVec::new();
+	stack.push(Route::default());
+	stack[0].vertices.push(0);
+	'withstack: while let Some(route) = stack.pop()
+	{
+		dbg!(&route);
+		dbg!(stack.len());
+
+		let i = *route.vertices.last().unwrap() as usize;
+		for edge in &graph.vertices[i].edges
+		{
+			if edge.vertex_offset == finish
+			{
+				let total_length = route.length + edge.length as usize;
+				if total_length > answer
+				{
+					answer = total_length;
+				}
+			}
+			else if route.vertices.len() + 1 == n
+			{
+				continue 'withstack;
+			}
+			else if !route.vertices.contains(&edge.vertex_offset)
+			{
+				let mut next = route.clone();
+				next.vertices.push(edge.vertex_offset);
+				next.length += edge.length as usize;
+				stack.push(next);
+			}
+		}
+		for j in 0..n
+		{
+			if route.vertices.contains(&(j as u8))
+			{
+				continue;
+			}
+			for edge in &graph.vertices[j].edges
+			{
+				if edge.vertex_offset as usize == i
+				{
+					let mut next = route.clone();
+					next.vertices.push(j as u8);
+					next.length += edge.length as usize;
+					stack.push(next);
+				}
+			}
+		}
+	}
+	answer
+}
+
 #[cfg(test)]
 mod tests
 {
@@ -408,6 +476,6 @@ mod tests
 	#[test]
 	fn two_provided()
 	{
-		assert_eq!(two(PROVIDED), 0);
+		assert_eq!(two(PROVIDED), 154);
 	}
 }
