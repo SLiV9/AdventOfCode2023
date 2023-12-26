@@ -7,6 +7,7 @@ use smallvec::SmallVec;
 const INPUT: &str = include_str!("input.txt");
 
 const GRID_SIZE: usize = 192;
+const MAX_NUM_VERTICES: usize = 64;
 
 pub fn main()
 {
@@ -135,7 +136,7 @@ struct Edge
 #[derive(Debug, Default)]
 struct Graph
 {
-	vertices: SmallVec<[Vertex; 128]>,
+	vertices: SmallVec<[Vertex; MAX_NUM_VERTICES]>,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -318,7 +319,76 @@ fn debug_print_graph(graph: &Graph)
 
 fn length_of_longest_route(graph: &Graph) -> usize
 {
-	todo!()
+	let n = graph.vertices.len();
+	let mut grid = [[0; MAX_NUM_VERTICES]; MAX_NUM_VERTICES];
+	for i in 0..n
+	{
+		for edge in &graph.vertices[i].edges
+		{
+			let j = edge.vertex_offset as usize;
+			let len = edge.length as usize;
+			if len > grid[i][j]
+			{
+				grid[i][j] = len;
+			}
+			for k in 0..n
+			{
+				// i -> j -> k
+				if grid[j][k] > 0
+				{
+					if grid[i][k] < grid[i][j] + grid[j][k]
+					{
+						grid[i][k] = grid[i][j] + grid[j][k];
+					}
+				}
+				// k -> i -> j
+				if grid[k][i] > 0
+				{
+					if grid[k][j] < grid[k][i] + grid[i][j]
+					{
+						grid[k][j] = grid[k][i] + grid[i][j];
+					}
+				}
+				// h -> i -> j -> k
+				for h in 0..n
+				{
+					if grid[h][i] > 0 && grid[j][k] > 0
+					{
+						if grid[h][k] < grid[h][i] + grid[i][j] + grid[j][k]
+						{
+							grid[h][k] = grid[h][i] + grid[i][j] + grid[j][k];
+						}
+					}
+				}
+			}
+		}
+		debug_print_max_walk_grid(&grid, n);
+	}
+
+	grid[0][n - 1]
+}
+
+#[allow(unused)]
+fn debug_print_max_walk_grid(
+	grid: &[[usize; MAX_NUM_VERTICES]; MAX_NUM_VERTICES],
+	n: usize,
+)
+{
+	if !cfg!(debug_assertions)
+	{
+		return;
+	}
+
+	println!();
+	for i in 0..n
+	{
+		for j in 0..n
+		{
+			print!("\t{}", grid[i][j]);
+		}
+		println!();
+	}
+	println!();
 }
 
 #[cfg(test)]
