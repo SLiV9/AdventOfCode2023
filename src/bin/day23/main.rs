@@ -125,6 +125,7 @@ impl Point
 struct Vertex
 {
 	edges: SmallVec<[Edge; 4]>,
+	incoming: SmallVec<[Edge; 4]>,
 	point: Point,
 	color: u8,
 }
@@ -201,9 +202,9 @@ fn graph_grid(
 			if cursor.row == finish_line
 			{
 				debug_assert_eq!(cursor.col as usize, num_cols - 2);
-				graph.vertices[from_offset].edges[edge_offset].vertex_offset =
-					graph.vertices.len() as u8;
+				let to_offset = graph.vertices.len();
 				add_vertex(grid, graph, cursor, b'F');
+				finish_edge(graph, from_offset, edge_offset, to_offset);
 				return;
 			}
 			else if let Some(direction) = inspect_slope(grid, cursor)
@@ -219,20 +220,18 @@ fn graph_grid(
 			.iter()
 			.position(|vertex| vertex.point == cursor)
 		{
-			graph.vertices[from_offset].edges[edge_offset].vertex_offset =
-				to_offset as u8;
+			finish_edge(graph, from_offset, edge_offset, to_offset);
 			continue;
 		}
 
-		let new_vertex_offset = graph.vertices.len() as u8;
-		graph.vertices[from_offset].edges[edge_offset].vertex_offset =
-			new_vertex_offset;
+		let new_vertex_offset = graph.vertices.len();
 		add_vertex(grid, graph, cursor, next_vertex_color);
 		next_vertex_color += 1;
 		if next_vertex_color > b'9'
 		{
 			next_vertex_color = b'0';
 		}
+		finish_edge(graph, from_offset, edge_offset, new_vertex_offset);
 
 		let new_directions = ALL_DIRECTIONS.into_iter().filter(|&direction| {
 			let mut next = cursor;
@@ -255,7 +254,7 @@ fn graph_grid(
 				next_edge_color = b'a';
 			}
 			queue.push(Entry {
-				from_vertex_offset: new_vertex_offset,
+				from_vertex_offset: new_vertex_offset as u8,
 				from_vertex_edge_offset: new_edge_offset as u8,
 				first_step: next,
 			});
@@ -273,9 +272,24 @@ fn add_vertex(
 	grid[point.row as usize][point.col as usize] = color;
 	graph.vertices.push(Vertex {
 		edges: SmallVec::default(),
+		incoming: SmallVec::default(),
 		point,
 		color,
 	});
+}
+
+fn finish_edge(
+	graph: &mut Graph,
+	from_offset: usize,
+	edge_offset: usize,
+	to_offset: usize,
+)
+{
+	let existing_edge = &mut graph.vertices[from_offset].edges[edge_offset];
+	existing_edge.vertex_offset = to_offset as u8;
+	let mut incoming = *existing_edge;
+	incoming.vertex_offset = from_offset as u8;
+	graph.vertices[to_offset].incoming.push(incoming);
 }
 
 fn inspect_slope(
@@ -316,6 +330,13 @@ fn debug_print_graph(graph: &Graph)
 			let to = edge.vertex_offset;
 			let steps = edge.length;
 			println!("----{color}---> {to} ({steps} steps)");
+		}
+		for edge in &vertex.edges
+		{
+			let color = char::from(edge.color);
+			let from = edge.vertex_offset;
+			let steps = edge.length;
+			println!("<---{color}---- {from} ({steps} steps)");
 		}
 	}
 	println!();
@@ -366,8 +387,9 @@ fn length_of_longest_route_part_one(graph: &Graph) -> usize
 				}
 			}
 		}
-		debug_print_max_walk_grid(&grid, n);
 	}
+
+	debug_print_max_walk_grid(&grid, n);
 
 	grid[0][n - 1]
 }
@@ -412,9 +434,6 @@ fn length_of_longest_route_part_two(graph: &Graph) -> usize
 	stack[0].vertices.push(0);
 	'withstack: while let Some(route) = stack.pop()
 	{
-		dbg!(&route);
-		dbg!(stack.len());
-
 		let i = *route.vertices.last().unwrap() as usize;
 		for edge in &graph.vertices[i].edges
 		{
@@ -438,21 +457,14 @@ fn length_of_longest_route_part_two(graph: &Graph) -> usize
 				stack.push(next);
 			}
 		}
-		for j in 0..n
+		for edge in &graph.vertices[i].incoming
 		{
-			if route.vertices.contains(&(j as u8))
+			if !route.vertices.contains(&edge.vertex_offset)
 			{
-				continue;
-			}
-			for edge in &graph.vertices[j].edges
-			{
-				if edge.vertex_offset as usize == i
-				{
-					let mut next = route.clone();
-					next.vertices.push(j as u8);
-					next.length += edge.length as usize;
-					stack.push(next);
-				}
+				let mut next = route.clone();
+				next.vertices.push(edge.vertex_offset);
+				next.length += edge.length as usize;
+				stack.push(next);
 			}
 		}
 	}
